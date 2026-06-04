@@ -46,10 +46,17 @@ The current workspace is the user's first active membership. A workspace switche
 
 ## Environment Variables
 
-Create a local `.env.local` from `.env.example` and provide real values for
-`DATABASE_URL`, `AUTH_SECRET`, and `NEXTAUTH_URL`.
+Create local `.env.local` and `.env` files from `.env.example`, then provide
+real values for `DATABASE_URL`, `AUTH_SECRET`, and `NEXTAUTH_URL`.
 
-`DATABASE_URL` must point to a valid PostgreSQL database for runtime auth, onboarding, and protected app flows. Generate `AUTH_SECRET` with a cryptographically secure random value. Never commit `.env.local` or production secrets.
+Next.js loads `.env.local` for the application. Prisma 7 loads `.env` through
+`prisma.config.ts`, so local migration commands need `DATABASE_URL` in `.env`
+or already present in the shell environment. Both files are ignored and must
+never be committed.
+
+`DATABASE_URL` must point to a valid PostgreSQL database for runtime auth,
+onboarding, and protected app flows. Generate `AUTH_SECRET` with a
+cryptographically secure random value.
 
 ## Local Development
 
@@ -65,7 +72,8 @@ Generate the Prisma client:
 npm run db:generate
 ```
 
-Create or apply a development migration after configuring a safe PostgreSQL database:
+Create or apply a development migration after configuring a safe PostgreSQL
+database in `.env`:
 
 ```bash
 npm run db:migrate -- --name init_dueflow_saas_foundation
