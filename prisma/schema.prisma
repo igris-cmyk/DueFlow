@@ -1,0 +1,429 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BusinessType {
+  CONTRACTOR
+  FREELANCER
+  AGENCY
+  PHOTOGRAPHER
+  REPAIR_TEAM
+  INTERIOR_WORKER
+  OTHER_SERVICE_BUSINESS
+}
+
+enum MembershipRole {
+  OWNER
+  MANAGER
+  STAFF
+  ACCOUNTANT
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum ClientReliabilityGrade {
+  UNKNOWN
+  A
+  B
+  C
+  D
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum ProjectRiskStatus {
+  HEALTHY
+  ATTENTION
+  AT_RISK
+  DISPUTED
+}
+
+enum PaymentRecordType {
+  INVOICE
+  PAYMENT
+  ADJUSTMENT
+  REFUND
+}
+
+enum PaymentStatus {
+  PENDING
+  DUE_SOON
+  OVERDUE
+  PARTIAL
+  PAID
+  DISPUTED
+}
+
+enum ProofType {
+  INVOICE
+  WORK_PHOTO
+  WHATSAPP_SCREENSHOT
+  APPROVAL
+  BILL_PHOTO
+  DELIVERY_PROOF
+  SIGNED_DOCUMENT
+  VOICE_NOTE
+  OTHER
+}
+
+enum PromiseStatus {
+  OPEN
+  KEPT
+  MISSED
+  CANCELLED
+}
+
+enum FollowUpPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum FollowUpStatus {
+  OPEN
+  COMPLETED
+  SKIPPED
+}
+
+enum FollowUpChannel {
+  PHONE
+  WHATSAPP
+  EMAIL
+  IN_PERSON
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum DisputeSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id                 String          @id @default(cuid())
+  name               String
+  email              String          @unique
+  emailVerified      DateTime?
+  image              String?
+  passwordHash       String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  accounts           Account[]
+  sessions           Session[]
+  authenticators     Authenticator[]
+  ownedOrganizations Organization[]  @relation("OrganizationOwner")
+  memberships        Membership[]
+  activityLogs       ActivityLog[]   @relation("ActivityActor")
+  uploadedProofItems ProofItem[]     @relation("ProofUploadedBy")
+  createdPromises    ClientPromise[] @relation("PromiseCreatedBy")
+  assignedFollowUps  FollowUp[]      @relation("FollowUpAssignedTo")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+}
+
+model Organization {
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  businessType   BusinessType
+  currency       String          @default("INR")
+  timezone       String          @default("Asia/Kolkata")
+  ownerId        String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  owner          User            @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  memberships    Membership[]
+  activityLogs   ActivityLog[]
+  clients        Client[]
+  projects       Project[]
+  paymentRecords PaymentRecord[]
+  proofItems     ProofItem[]
+  clientPromises ClientPromise[]
+  followUps      FollowUp[]
+  disputes       Dispute[]
+
+  @@index([ownerId])
+  @@index([businessType])
+}
+
+model Membership {
+  id             String           @id @default(cuid())
+  userId         String
+  organizationId String
+  role           MembershipRole
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId, status])
+  @@index([userId, status])
+}
+
+model ActivityLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  actorId        String
+  entityType     String
+  entityId       String?
+  action         String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User         @relation("ActivityActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, entityType, entityId])
+  @@index([actorId])
+}
+
+model Client {
+  id               String                 @id @default(cuid())
+  organizationId   String
+  name             String
+  phone            String?
+  email            String?
+  address          String?
+  category         String?
+  reliabilityGrade ClientReliabilityGrade @default(UNKNOWN)
+  notes            String?                @db.Text
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projects         Project[]
+  paymentRecords   PaymentRecord[]
+  proofItems       ProofItem[]
+  clientPromises   ClientPromise[]
+  followUps        FollowUp[]
+  disputes         Dispute[]
+
+  @@index([organizationId, name])
+  @@index([organizationId, reliabilityGrade])
+}
+
+model Project {
+  id             String            @id @default(cuid())
+  organizationId String
+  clientId       String
+  name           String
+  description    String?           @db.Text
+  status         ProjectStatus     @default(PLANNED)
+  totalValue     Decimal           @default(0) @db.Decimal(14, 2)
+  paidAmount     Decimal           @default(0) @db.Decimal(14, 2)
+  pendingAmount  Decimal           @default(0) @db.Decimal(14, 2)
+  startDate      DateTime?
+  dueDate        DateTime?
+  completionDate DateTime?
+  paymentTerms   String?           @db.Text
+  riskStatus     ProjectRiskStatus @default(HEALTHY)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  paymentRecords PaymentRecord[]
+  proofItems     ProofItem[]
+  clientPromises ClientPromise[]
+  followUps      FollowUp[]
+  disputes       Dispute[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, dueDate])
+  @@index([clientId])
+}
+
+model PaymentRecord {
+  id              String            @id @default(cuid())
+  organizationId  String
+  projectId       String
+  clientId        String
+  type            PaymentRecordType
+  amount          Decimal           @db.Decimal(14, 2)
+  status          PaymentStatus     @default(PENDING)
+  dueDate         DateTime?
+  paidDate        DateTime?
+  method          String?
+  referenceNumber String?
+  notes           String?           @db.Text
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  client          Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  followUps       FollowUp[]
+  disputes        Dispute[]
+
+  @@index([organizationId, status, dueDate])
+  @@index([organizationId, clientId])
+  @@index([projectId])
+}
+
+model ProofItem {
+  id             String       @id @default(cuid())
+  organizationId String
+  projectId      String
+  clientId       String
+  type           ProofType
+  fileUrl        String?
+  fileName       String?
+  description    String?      @db.Text
+  uploadedById   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  uploadedBy     User?        @relation("ProofUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, type])
+  @@index([projectId])
+  @@index([clientId])
+}
+
+model ClientPromise {
+  id             String        @id @default(cuid())
+  organizationId String
+  clientId       String
+  projectId      String?
+  promisedAmount Decimal?      @db.Decimal(14, 2)
+  promisedDate   DateTime
+  promiseText    String        @db.Text
+  status         PromiseStatus @default(OPEN)
+  createdById    String
+  createdAt      DateTime      @default(now())
+  resolvedAt     DateTime?
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project        Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  createdBy      User          @relation("PromiseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status, promisedDate])
+  @@index([clientId])
+  @@index([projectId])
+}
+
+model FollowUp {
+  id              String           @id @default(cuid())
+  organizationId  String
+  clientId        String
+  projectId       String?
+  paymentRecordId String?
+  title           String
+  dueDate         DateTime
+  priority        FollowUpPriority @default(NORMAL)
+  status          FollowUpStatus   @default(OPEN)
+  channel         FollowUpChannel?
+  assignedToId    String?
+  notes           String?          @db.Text
+  completedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  paymentRecord   PaymentRecord?   @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
+  assignedTo      User?            @relation("FollowUpAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, dueDate])
+  @@index([organizationId, assignedToId, status])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([paymentRecordId])
+}
+
+model Dispute {
+  id              String          @id @default(cuid())
+  organizationId  String
+  clientId        String
+  projectId       String?
+  paymentRecordId String?
+  reason          String
+  description     String?         @db.Text
+  status          DisputeStatus   @default(OPEN)
+  severity        DisputeSeverity @default(MEDIUM)
+  createdAt       DateTime        @default(now())
+  resolvedAt      DateTime?
+  updatedAt       DateTime        @updatedAt
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project         Project?        @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  paymentRecord   PaymentRecord?  @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status, severity])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([paymentRecordId])
+}

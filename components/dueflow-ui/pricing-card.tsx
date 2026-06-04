@@ -75,7 +75,7 @@ export function PricingCard({
         ))}
       </ul>
       <ButtonLink
-        href="/pricing#plans"
+        href="/signup"
         variant={plan.featured ? "primary" : "secondary"}
         className="mt-6 w-full"
       >

@@ -26,7 +26,7 @@ export default function PricingPage() {
         eyebrow="Early access pricing"
         title="Clear plans for businesses that want clearer cashflow."
         description="Choose the level of client, project, proof, reporting, and team control that fits your work. DueFlow has no recovery fee and no hidden commission."
-        primaryHref="#plans"
+        primaryHref="/signup"
         secondaryLabel="Explore Use Cases"
         secondaryHref="/use-cases"
       />
@@ -117,7 +117,7 @@ export default function PricingPage() {
             Join DueFlow early access and build a more professional payment
             follow-up habit.
           </p>
-          <ButtonLink href="#plans" showArrow className="mt-8">
+          <ButtonLink href="/signup" showArrow className="mt-8">
             Start Free
           </ButtonLink>
         </div>

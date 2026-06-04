@@ -17,7 +17,7 @@ export function PageHero({
   title,
   description,
   primaryLabel = "Start Free",
-  primaryHref = "/pricing#plans",
+  primaryHref = "/signup",
   secondaryLabel,
   secondaryHref,
   className,

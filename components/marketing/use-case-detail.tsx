@@ -135,7 +135,7 @@ export function UseCaseDetail({ useCase }: UseCaseDetailProps) {
             professional record.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <ButtonLink href="/pricing#plans" showArrow>
+            <ButtonLink href="/signup" showArrow>
               Start Free
             </ButtonLink>
             <ButtonLink href="/pricing" variant="secondary">

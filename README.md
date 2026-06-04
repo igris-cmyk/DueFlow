@@ -4,91 +4,52 @@
 
 > Your work is done. Your money should not be lost in WhatsApp.
 
-DueFlow is designed to help work-based businesses track pending payments, proof, client promises, disputes, and follow-ups from one premium cashflow command center.
-
----
-
-## What DueFlow Solves
-
-Many small businesses complete work before receiving full payment. Their payment records often get scattered across WhatsApp chats, screenshots, invoices, notebooks, phone calls, and memory.
-
-DueFlow is built around one simple principle:
-
-> Every pending payment should have a client, a project, proof, a reason, and a next action.
-
----
+Every pending payment should have a client, a project, proof, a reason, and a next action.
 
 ## Current Status
 
-This repository currently contains **Phase 1 + Phase 1.5** of DueFlow:
+This repository contains **Phase 2A: Production SaaS Foundation**:
 
-* Premium public landing page
-* Pricing page
-* Use-cases page
-* Dynamic use-case pages
-* Component-based product previews
-* Design system primitives
-* Responsive visual polish
-* CTA contrast fixes
-* Smooth scrolling and anchor polish
-* SEO metadata
-* Static early-access marketing experience
+* Premium public marketing routes from Phase 1 and Phase 1.5
+* Email and password signup, login, and logout
+* Auth.js credentials authentication with encrypted JWT sessions
+* PostgreSQL and Prisma 7 foundation
+* User, organization, membership, role, and activity log models
+* Future client, project, payment, proof, promise, follow-up, and dispute schema
+* Transactional organization onboarding
+* Server-side tenant and role helpers
+* Protected DueFlow app shell and product-specific empty states
+* Read-only organization settings foundation
 
-This version does **not** include authentication, database, billing, file uploads, AI API calls, PDF generation, or a live mobile app yet.
-
----
-
-## Core Product Concepts
-
-### Today’s Cash Desk
-
-DueFlow does not open with a generic dashboard. It opens with a focused cash desk that answers:
-
-* Who owes money?
-* What is overdue?
-* What did clients promise?
-* What proof is missing?
-* What should be followed up today?
-
-### Proof Vault
-
-A structured place for invoices, work photos, WhatsApp screenshots, approvals, bills, delivery proof, signed documents, and other evidence related to a project.
-
-### Suggested Follow-Ups
-
-DueFlow is designed to help users write clear, respectful payment follow-ups. Messages are user-approved and do not imply automatic collection or legal action.
-
-### Web + Mobile Vision
-
-The web app is planned as the command center for full cashflow control, reporting, pricing, billing, and team workflows.
-
-The mobile app is planned as the field tool for adding proof photos, recording promises, checking follow-ups, marking payments received, and copying WhatsApp reminders.
-
----
+Phase 2A does not include billing, AI, file uploads, invitation emails, live reports, or full client, project, and payment CRUD.
 
 ## Tech Stack
 
 * Next.js App Router
-* TypeScript
+* React and TypeScript
 * Tailwind CSS
-* React
-* ESLint
-* Static marketing architecture
+* Auth.js / NextAuth.js v5 credentials provider
+* bcryptjs password hashing
+* Zod validation
+* PostgreSQL
+* Prisma 7 with `@prisma/adapter-pg`
 
----
+## Auth Architecture
 
-## Routes
+DueFlow uses a credentials provider and JWT session strategy for the initial email and password flow. Users are persisted directly with Prisma and passwords are stored only as bcrypt hashes.
 
-```txt
-/
- /pricing
- /use-cases
- /use-cases/contractors
- /use-cases/freelancers
- /use-cases/agencies
-```
+The Prisma Adapter is not used in Phase 2A because credentials authentication with JWT sessions does not require it. Standard adapter-ready `Account`, `Session`, `VerificationToken`, and `Authenticator` models are included so a future OAuth or database-session path does not require a schema rewrite.
 
----
+Authorization is performed near protected data and layouts through server-only helpers in `lib/auth/guards.ts`. No middleware or proxy is treated as the tenant authorization boundary.
+
+The current workspace is the user's first active membership. A workspace switcher is deferred until multi-workspace UX is implemented.
+
+## Environment Variables
+
+Create a local `.env.local` from `.env.example` and provide real values for
+`DATABASE_URL`, `AUTH_SECRET`, and `NEXTAUTH_URL`.
+
+`DATABASE_URL` must point to a valid PostgreSQL database for runtime auth, onboarding, and protected app flows. Generate `AUTH_SECRET` with a cryptographically secure random value. Never commit `.env.local` or production secrets.
 
 ## Local Development
 
@@ -98,75 +59,101 @@ Install dependencies:
 npm install
 ```
 
-Run development server:
+Generate the Prisma client:
+
+```bash
+npm run db:generate
+```
+
+Create or apply a development migration after configuring a safe PostgreSQL database:
+
+```bash
+npm run db:migrate -- --name init_dueflow_saas_foundation
+```
+
+Run the app:
 
 ```bash
 npm run dev
 ```
 
-Build for production:
-
-```bash
-npm run build
-```
-
-Run lint:
+Other commands:
 
 ```bash
 npm run lint
-```
-
-Run typecheck:
-
-```bash
 npm run typecheck
+npm run build
+npm run db:studio
 ```
 
----
+`npm run build` generates the Prisma client before building Next.js.
 
-## Verification Status
+## Routes
 
-Phase 1.5 passed:
+Public marketing:
 
-* `npm run lint`
-* `npm run typecheck`
-* `npm run build`
-* `npm audit`
-* Route smoke checks
-* Responsive browser QA using headless Chromium
+```txt
+/
+/pricing
+/use-cases
+/use-cases/contractors
+/use-cases/freelancers
+/use-cases/agencies
+```
 
----
+Auth and onboarding:
 
-## Product Boundaries
+```txt
+/signup
+/login
+/onboarding
+```
 
-DueFlow is not:
+Protected product:
 
-* a debt recovery app
-* a legal recovery tool
-* a generic CRM
-* an accounting replacement
-* a chatbot wrapper
-* an automated WhatsApp spam tool
+```txt
+/app
+/app/today
+/app/clients
+/app/projects
+/app/payments
+/app/follow-ups
+/app/proof-vault
+/app/reports
+/app/settings
+```
 
-DueFlow is designed to help businesses organize pending money, proof, promises, disputes, and follow-ups professionally.
+Unauthenticated users are redirected to `/login`. Authenticated users without an active organization membership are redirected to `/onboarding`.
 
----
+## Data and Tenant Safety
 
-## Planned Next Phase
+All future product models include `organizationId`. Future queries must filter by organization and verify active membership; client-submitted organization IDs are never sufficient authorization.
 
-**Phase 2: Production SaaS Foundation**
+Organization onboarding creates the organization, OWNER membership, and `organization.created` activity log entry inside one database transaction. The `passwordHash` field is never selected by client-facing user helpers.
 
-Planned scope:
+## Vercel Deployment
 
-* Authentication
-* Organization/workspace model
-* Protected app shell
-* Database schema
-* Multi-tenant boundaries
-* Empty-state product workflows
-* Client, project, payment, proof, promise, and follow-up foundations
+Before redeploying Phase 2A, configure these Vercel environment variables for the relevant environments:
 
----
+* `DATABASE_URL`
+* `AUTH_SECRET`
+* `NEXTAUTH_URL`
+
+Use the deployed application URL for `NEXTAUTH_URL`. Ensure the PostgreSQL database is reachable from Vercel and apply the initial migration against the intended database before opening auth flows to users.
+
+## Current Limitations
+
+* No organization switcher
+* No password reset or email verification flow
+* No OAuth providers
+* No team invitation workflow
+* Organization settings are read-only
+* No live uploads, billing, AI, analytics, or product CRUD
+* No fake operational data is seeded
+
+## Recommended Next Phase
+
+**Phase 3: Core Ledger System** should add clients, projects, payment records, pending balance calculations, tenant-safe CRUD, empty-to-active workflows, and server-side data integrity.
 
 ## License
 

@@ -39,7 +39,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden md:block">
-          <ButtonLink href="/pricing#plans" className="min-h-10 px-4 py-2">
+          <ButtonLink href="/signup" className="min-h-10 px-4 py-2">
             Start Free
           </ButtonLink>
         </div>
@@ -64,7 +64,7 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
-            <ButtonLink href="/pricing#plans" className="mt-2 w-full">
+            <ButtonLink href="/signup" className="mt-2 w-full">
               Start Free
             </ButtonLink>
           </nav>

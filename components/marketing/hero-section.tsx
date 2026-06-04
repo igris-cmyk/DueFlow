@@ -19,7 +19,7 @@ export function HeroSection() {
             and follow-ups from one premium cashflow command center.
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <ButtonLink href="/pricing#plans" showArrow>
+            <ButtonLink href="/signup" showArrow>
               Start Free
             </ButtonLink>
             <ButtonLink href="/#product-preview" variant="secondary">

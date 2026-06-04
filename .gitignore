@@ -4,9 +4,13 @@
 # next.js
 /.next/
 /out/
+/.vercel/
 
 # production
 /build
+
+# generated
+/app/generated/prisma
 
 # misc
 .DS_Store
@@ -19,7 +23,12 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # local env files
+.env
+.env.local
+.env.production
+.env.development
 .env*
+!.env.example
 
 # typescript
 *.tsbuildinfo
