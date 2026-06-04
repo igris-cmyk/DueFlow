@@ -58,6 +58,12 @@ never be committed.
 onboarding, and protected app flows. Generate `AUTH_SECRET` with a
 cryptographically secure random value.
 
+Prisma client generation does not require a live database connection. The
+Prisma config reads `process.env.DATABASE_URL` so dependency installation and
+`prisma generate` can complete before deployment secrets are available.
+Migration commands still require a valid `DATABASE_URL` and fail clearly when
+it is missing.
+
 ## Local Development
 
 Install dependencies:
@@ -147,7 +153,10 @@ Before redeploying Phase 2A, configure these Vercel environment variables for th
 * `AUTH_SECRET`
 * `NEXTAUTH_URL`
 
-Use the deployed application URL for `NEXTAUTH_URL`. Ensure the PostgreSQL database is reachable from Vercel and apply the initial migration against the intended database before opening auth flows to users.
+Add the variables in the Vercel project settings before using auth or database
+flows. Use the deployed application URL for `NEXTAUTH_URL`. Ensure the
+PostgreSQL database is reachable from Vercel and apply migrations against the
+intended database before opening auth flows to users.
 
 ## Current Limitations
 
