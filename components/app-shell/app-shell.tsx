@@ -30,45 +30,69 @@ export function AppShell({
 }: AppShellProps) {
   const role = formatMembershipRole(membership.role);
   const businessType = formatBusinessType(organization.businessType);
+  const userInitials = user.name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#eeece5] lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
-      <aside className="hidden min-h-screen flex-col bg-[var(--ink)] px-4 py-5 text-white lg:flex">
+    <div className="min-h-dvh bg-[var(--app-bg)] text-[var(--app-text)] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
+      <aside className="sticky top-0 hidden h-dvh flex-col bg-[var(--app-sidebar)] px-5 py-6 text-[var(--app-sidebar-text)] lg:flex">
         <Link
           href="/app/today"
           aria-label="DueFlow Today’s Cash Desk"
-          className="flex items-center gap-3 px-2"
+          className="flex items-center gap-3 px-1"
         >
-          <span className="grid size-9 place-items-center rounded-xl bg-white text-xs font-black text-[var(--ink)]">
+          <span className="grid size-10 place-items-center rounded-[0.9rem] bg-[#f7f4eb] text-sm font-black text-[var(--app-sidebar)] shadow-sm ring-1 ring-white/20">
             D
           </span>
-          <span className="text-base font-black tracking-[-0.035em]">
-            DueFlow
+          <span>
+            <span className="block text-base font-black tracking-[-0.035em]">
+              DueFlow
+            </span>
+            <span className="mt-0.5 block text-xs font-medium text-[var(--app-sidebar-muted)]">
+              Cashflow command center
+            </span>
           </span>
         </Link>
 
-        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-          <p className="truncate text-sm font-extrabold text-white">
+        <div className="mt-8 rounded-[1.15rem] border border-[var(--app-sidebar-border)] bg-[var(--app-sidebar-surface)] p-4 shadow-[0_12px_28px_rgba(10,18,13,0.12)]">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.11em] text-[#9fb0a5]">
+              Current workspace
+            </p>
+            <span className="rounded-full border border-[#4d6356] bg-[#314339] px-2 py-0.5 text-[0.66rem] font-extrabold uppercase tracking-[0.07em] text-[#b9d4c2]">
+              Early Access
+            </span>
+          </div>
+          <p className="mt-3 truncate text-[0.95rem] font-extrabold text-white">
             {organization.name}
           </p>
-          <p className="mt-1 truncate text-xs text-[#9eaaa3]">{businessType}</p>
+          <p className="mt-1 truncate text-[0.8rem] leading-5 text-[var(--app-sidebar-muted)]">
+            {businessType}
+          </p>
         </div>
 
-        <div className="mt-5 flex-1">
+        <div className="mt-7 flex-1">
+          <p className="mb-3 px-2 text-[0.7rem] font-extrabold uppercase tracking-[0.12em] text-[#91a097]">
+            Workspace
+          </p>
           <AppNav />
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-          <div className="flex items-start gap-2.5">
+        <div className="rounded-[1.15rem] border border-[var(--app-sidebar-border)] bg-[var(--app-sidebar-surface)] p-4">
+          <div className="flex items-start gap-3">
             <ShieldCheck
               aria-hidden="true"
-              className="mt-0.5 size-4 shrink-0 text-[#8fc7a4]"
+              className="mt-0.5 size-[1.1rem] shrink-0 text-[#9ac8aa]"
             />
             <div>
-              <p className="text-xs font-extrabold text-white">
+              <p className="text-sm font-extrabold text-white">
                 Workspace protected
               </p>
-              <p className="mt-1 text-xs leading-5 text-[#9eaaa3]">
+              <p className="mt-1.5 text-[0.8rem] leading-5 text-[var(--app-sidebar-muted)]">
                 Future records stay inside this organization boundary.
               </p>
             </div>
@@ -77,22 +101,25 @@ export function AppShell({
       </aside>
 
       <div className="min-w-0">
-        <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-[#f8f6f0]/92 backdrop-blur-xl">
-          <div className="flex min-h-[4.6rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-40 border-b border-[var(--app-border)] bg-[var(--app-surface)]/95 backdrop-blur-xl">
+          <div className="flex min-h-20 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <details className="group relative lg:hidden">
                 <summary
                   aria-label="Open workspace navigation"
-                  className="grid size-10 cursor-pointer list-none place-items-center rounded-xl border border-[var(--line)] bg-[var(--paper-strong)] [&::-webkit-details-marker]:hidden"
+                  className="grid size-10 cursor-pointer list-none place-items-center rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] text-[var(--app-text-soft)] shadow-sm transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)] [&::-webkit-details-marker]:hidden"
                 >
                   <Menu aria-hidden="true" className="size-4.5" />
                 </summary>
-                <div className="absolute left-0 top-12 w-72 rounded-2xl border border-[var(--line)] bg-[var(--paper-strong)] p-3 shadow-[var(--shadow-soft)]">
-                  <div className="mb-3 border-b border-[var(--line)] px-2 pb-3">
-                    <p className="truncate text-sm font-extrabold text-[var(--ink)]">
+                <div className="absolute left-0 top-12 w-[min(19rem,calc(100vw-2rem))] rounded-[1.25rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3 shadow-[var(--app-shadow)]">
+                  <div className="mb-3 border-b border-[var(--app-border)] px-2 pb-3">
+                    <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-[var(--app-accent)]">
+                      DueFlow workspace
+                    </p>
+                    <p className="mt-2 truncate text-[0.95rem] font-extrabold text-[var(--app-text)]">
                       {organization.name}
                     </p>
-                    <p className="mt-1 truncate text-xs text-[var(--text-muted)]">
+                    <p className="mt-1 truncate text-[0.8rem] text-[var(--app-text-muted)]">
                       {businessType}
                     </p>
                   </div>
@@ -100,44 +127,47 @@ export function AppShell({
                 </div>
               </details>
 
-              <Link
-                href="/app/today"
-                className="inline-flex items-center gap-2 lg:hidden"
-              >
-                <span className="grid size-8 place-items-center rounded-xl bg-[var(--ink)] text-[0.65rem] font-black text-white">
-                  D
-                </span>
-                <span className="hidden text-sm font-black tracking-[-0.03em] sm:block">
-                  DueFlow
-                </span>
-              </Link>
-
-              <div className="hidden min-w-0 lg:block">
-                <p className="truncate text-sm font-extrabold text-[var(--ink)]">
+              <div className="min-w-0 lg:hidden">
+                <p className="truncate text-sm font-extrabold text-[var(--app-text)]">
                   {organization.name}
                 </p>
-                <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">
+                <p className="mt-0.5 truncate text-xs text-[var(--app-text-muted)]">
+                  {businessType}
+                </p>
+              </div>
+
+              <div className="hidden min-w-0 lg:block">
+                <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.11em] text-[var(--app-text-muted)]">
+                  Current workspace
+                </p>
+                <p className="mt-1 truncate text-base font-extrabold text-[var(--app-text)]">
+                  {organization.name}
+                </p>
+                <p className="mt-0.5 truncate text-[0.8rem] text-[var(--app-text-muted)]">
                   {businessType}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <span className="hidden rounded-full border border-[#bed8c6] bg-[var(--green-soft)] px-3 py-1 text-[0.68rem] font-extrabold uppercase tracking-[0.08em] text-[var(--green)] sm:inline-flex">
+              <span className="hidden rounded-full border border-[#c5d8ca] bg-[var(--app-accent-soft)] px-3 py-1 text-[0.7rem] font-extrabold uppercase tracking-[0.08em] text-[var(--app-accent)] xl:inline-flex">
                 Early Access
               </span>
-              <div className="hidden max-w-52 text-right md:block">
-                <p className="truncate text-xs font-extrabold text-[var(--ink)]">
+              <span className="hidden size-9 place-items-center rounded-full border border-[#cbd4cd] bg-[#edf2ed] text-xs font-black text-[var(--app-accent)] md:grid">
+                {userInitials}
+              </span>
+              <div className="hidden max-w-56 text-right md:block">
+                <p className="truncate text-sm font-extrabold text-[var(--app-text)]">
                   {user.name}
                 </p>
-                <p className="mt-0.5 truncate text-[0.68rem] text-[var(--text-muted)]">
+                <p className="mt-0.5 truncate text-[0.78rem] text-[var(--app-text-muted)]">
                   {role} · {user.email}
                 </p>
               </div>
               <form action={logoutAction}>
                 <button
                   type="submit"
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--paper-strong)] px-3 text-xs font-extrabold text-[#4d5650] shadow-sm transition hover:border-[#c9c5ba] hover:text-[var(--ink)]"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-3.5 text-sm font-bold text-[var(--app-text-soft)] shadow-sm transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
                 >
                   <LogOut aria-hidden="true" className="size-4" />
                   <span className="hidden sm:inline">Logout</span>
@@ -147,7 +177,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="min-w-0 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <main className="min-h-[calc(100dvh-5rem)] min-w-0 px-4 py-7 sm:px-6 sm:py-9 lg:px-8 lg:py-11">
           {children}
         </main>
       </div>
