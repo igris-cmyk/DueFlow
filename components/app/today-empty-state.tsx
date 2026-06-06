@@ -1,11 +1,10 @@
 import {
   ArrowRight,
   BriefcaseBusiness,
-  FileArchive,
   HandCoins,
-  ListTodo,
   UserRoundPlus,
 } from "lucide-react";
+import Link from "next/link";
 
 const previewActions = [
   {
@@ -19,19 +18,9 @@ const previewActions = [
     icon: BriefcaseBusiness,
   },
   {
-    title: "Record pending payment",
-    description: "Give every amount a clear status and reason.",
+    title: "Record received payment",
+    description: "Record money received once a project exists.",
     icon: HandCoins,
-  },
-  {
-    title: "Upload proof",
-    description: "Keep invoices, approvals, screenshots, and work photos close.",
-    icon: FileArchive,
-  },
-  {
-    title: "Create follow-up",
-    description: "Turn a pending balance into a respectful next action.",
-    icon: ListTodo,
   },
 ];
 
@@ -47,9 +36,8 @@ export function TodayEmptyState() {
             Today’s Cash Desk
           </h1>
           <p className="mt-5 max-w-2xl text-[0.95rem] leading-7 text-[var(--app-text-muted)] sm:text-base sm:leading-8">
-            Your cash desk is ready. Phase 3 will add real clients, projects,
-            and pending payments so every rupee can carry a clear status and
-            next action.
+            Your cash desk is ready. Add a client, create a project, and record
+            received payments so every rupee carries a clear status.
           </p>
         </div>
         <span className="inline-flex w-fit rounded-full border border-[#cad9ce] bg-[var(--app-accent-soft)] px-3.5 py-1.5 text-[0.72rem] font-extrabold uppercase tracking-[0.09em] text-[var(--app-accent)]">
@@ -61,18 +49,18 @@ export function TodayEmptyState() {
         <div className="flex flex-col gap-3 border-b border-[var(--app-border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-base font-black tracking-[-0.025em] text-[var(--app-text)]">
-              Build the starting record
+            Build the starting record
             </p>
             <p className="mt-2 text-[0.9rem] leading-6 text-[var(--app-text-muted)]">
-              The core ledger will activate these workflows in Phase 3.
+              Start with a real client, then attach a project and payment history.
             </p>
           </div>
           <span className="inline-flex w-fit rounded-full border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-1 text-[0.72rem] font-extrabold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">
-            Preview actions
+            Core actions
           </span>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
           {previewActions.map((action) => (
             <article
               key={action.title}
@@ -81,9 +69,6 @@ export function TodayEmptyState() {
               <div className="flex w-full items-center justify-between gap-2">
                 <span className="grid size-10 place-items-center rounded-xl border border-[#c8d7cc] bg-[var(--app-surface-strong)] text-[var(--app-accent)] shadow-sm">
                   <action.icon aria-hidden="true" className="size-4.5" />
-                </span>
-                <span className="rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-[0.07em] text-[var(--app-text-muted)]">
-                  Phase 3
                 </span>
               </div>
               <span className="mt-5 text-[0.95rem] font-extrabold text-[var(--app-text)]">
@@ -96,6 +81,22 @@ export function TodayEmptyState() {
           ))}
         </div>
       </section>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <Link
+          href="/app/clients/new"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--app-sidebar)] px-4 text-sm font-extrabold text-white shadow-[0_10px_24px_rgba(31,40,34,0.17)] transition hover:bg-[#2a352d]"
+        >
+          Add first client
+          <ArrowRight aria-hidden="true" className="size-4" />
+        </Link>
+        <Link
+          href="/app/projects/new"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-4 text-sm font-extrabold text-[var(--app-text-soft)] shadow-sm transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
+        >
+          Add project
+        </Link>
+      </div>
 
       <section className="mt-5 grid gap-4 md:grid-cols-3">
         {[

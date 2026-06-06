@@ -1,6 +1,7 @@
 import type {
   InputHTMLAttributes,
   SelectHTMLAttributes,
+  TextareaHTMLAttributes,
 } from "react";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +95,51 @@ export function SelectField({
           </option>
         ))}
       </select>
+      {error ? (
+        <p
+          id={`${id}-error`}
+          className="mt-2 text-[0.8rem] font-semibold leading-5 text-[var(--red)]"
+        >
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+type TextareaFieldProps = Omit<
+  TextareaHTMLAttributes<HTMLTextAreaElement>,
+  "id"
+> & {
+  id: string;
+  label: string;
+  error?: string;
+};
+
+export function TextareaField({
+  id,
+  label,
+  error,
+  className,
+  name,
+  ...props
+}: TextareaFieldProps) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-2 block text-sm font-bold text-[var(--ink)]"
+      >
+        {label}
+      </label>
+      <textarea
+        id={id}
+        name={name ?? id}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className={cn(controlClassName, "min-h-32 resize-y", className)}
+        {...props}
+      />
       {error ? (
         <p
           id={`${id}-error`}

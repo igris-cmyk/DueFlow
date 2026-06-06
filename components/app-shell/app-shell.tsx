@@ -93,7 +93,7 @@ export function AppShell({
                 Workspace protected
               </p>
               <p className="mt-1.5 text-[0.8rem] leading-5 text-[var(--app-sidebar-muted)]">
-                Future records stay inside this organization boundary.
+                Ledger records stay inside this organization boundary.
               </p>
             </div>
           </div>

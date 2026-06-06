@@ -11,7 +11,7 @@ export default function ReportsPage() {
     <EmptyModulePage
       eyebrow="Professional summary foundation"
       title="Reports"
-      message="Reports will turn ledgers, proof, and follow-up history into professional summaries."
+      message="Reports will use real ledger data after clients, projects, and received payments are established."
       icon={TrendingUp}
       futurePoints={[
         "Summarize balances without fake metrics or disconnected charts.",

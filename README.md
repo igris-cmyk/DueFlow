@@ -8,7 +8,7 @@ Every pending payment should have a client, a project, proof, a reason, and a ne
 
 ## Current Status
 
-This repository contains **Phase 2A: Production SaaS Foundation**:
+This repository contains **Phase 3: Core Ledger System**:
 
 * Premium public marketing routes from Phase 1 and Phase 1.5
 * Email and password signup, login, and logout
@@ -20,8 +20,14 @@ This repository contains **Phase 2A: Production SaaS Foundation**:
 * Server-side tenant and role helpers
 * Protected DueFlow app shell and product-specific empty states
 * Read-only organization settings foundation
+* Tenant-safe client create, list, detail, and edit workflows
+* Tenant-safe project create, list, detail, and edit workflows
+* Tenant-safe received-payment create, list, detail, edit, and cancel workflows
+* Transactional project balance recalculation for paid and pending amounts
+* Real Today’s Cash Desk aggregates for pending, overdue, due-this-week, and received-this-month money
+* Activity logs for core ledger create, update, and cancellation actions
 
-Phase 2A does not include billing, AI, file uploads, invitation emails, live reports, or full client, project, and payment CRUD.
+Phase 3 does not include billing, AI, file uploads, invitation emails, live reports, proof uploads, promise tracking, or follow-up automation.
 
 ## Tech Stack
 
@@ -129,8 +135,17 @@ Protected product:
 /app
 /app/today
 /app/clients
+/app/clients/new
+/app/clients/[clientId]
+/app/clients/[clientId]/edit
 /app/projects
+/app/projects/new
+/app/projects/[projectId]
+/app/projects/[projectId]/edit
 /app/payments
+/app/payments/new
+/app/payments/[paymentId]
+/app/payments/[paymentId]/edit
 /app/follow-ups
 /app/proof-vault
 /app/reports
@@ -139,15 +154,53 @@ Protected product:
 
 Unauthenticated users are redirected to `/login`. Authenticated users without an active organization membership are redirected to `/onboarding`.
 
+## Core Ledger
+
+Phase 3 treats `Project.totalValue` as the agreed value of the work and
+`PaymentRecord` rows with `type = PAYMENT` as money received against that
+project. Valid received payments exclude records with `status = CANCELLED`.
+
+Project balances use transactional denormalization because `Project` already
+stores `paidAmount` and `pendingAmount`. Whenever a payment is created, edited,
+or cancelled, DueFlow recalculates:
+
+```txt
+paidAmount = sum(valid received payments)
+pendingAmount = max(totalValue - paidAmount, 0)
+```
+
+Received payments are rejected if they would exceed the remaining pending
+balance. Cancelled payment records remain in the database and no longer count
+toward paid totals.
+
+## Migration Notes
+
+Phase 3 adds `PaymentStatus.CANCELLED`, `PaymentRecord.cancelledAt`,
+`PaymentRecord.cancelledById`, and an index for organization-scoped paid-date
+queries. The migration is:
+
+```txt
+prisma/migrations/20260605000000_phase_3_core_ledger/migration.sql
+```
+
+Apply migrations to the intended PostgreSQL database before redeploying:
+
+```bash
+npm run db:migrate -- --name phase_3_core_ledger
+```
+
 ## Data and Tenant Safety
 
-All future product models include `organizationId`. Future queries must filter by organization and verify active membership; client-submitted organization IDs are never sufficient authorization.
+All product models include `organizationId`. Product queries and mutations filter by the current organization and verify active membership; client-submitted organization IDs are never sufficient authorization.
 
 Organization onboarding creates the organization, OWNER membership, and `organization.created` activity log entry inside one database transaction. The `passwordHash` field is never selected by client-facing user helpers.
 
+Client, project, and payment mutations write concise activity log entries for
+core ledger actions without storing secrets or unnecessary PII.
+
 ## Vercel Deployment
 
-Before redeploying Phase 2A, configure these Vercel environment variables for the relevant environments:
+Before redeploying Phase 3, configure these Vercel environment variables for the relevant environments:
 
 * `DATABASE_URL`
 * `AUTH_SECRET`
@@ -165,12 +218,14 @@ intended database before opening auth flows to users.
 * No OAuth providers
 * No team invitation workflow
 * Organization settings are read-only
-* No live uploads, billing, AI, analytics, or product CRUD
+* No live uploads, billing, AI, analytics, reports engine, or proof backend
+* No archive workflow for clients or projects yet
+* No promise tracker or follow-up engine
 * No fake operational data is seeded
 
 ## Recommended Next Phase
 
-**Phase 3: Core Ledger System** should add clients, projects, payment records, pending balance calculations, tenant-safe CRUD, empty-to-active workflows, and server-side data integrity.
+**Phase 4A: Proof Vault Foundation** should add proof metadata CRUD and a storage decision for invoices, approvals, screenshots, and work photos linked to the real ledger.
 
 ## License
 

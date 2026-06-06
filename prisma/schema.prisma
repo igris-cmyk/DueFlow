@@ -67,6 +67,7 @@ enum PaymentStatus {
   PARTIAL
   PAID
   DISPUTED
+  CANCELLED
 }
 
 enum ProofType {
@@ -318,6 +319,8 @@ model PaymentRecord {
   method          String?
   referenceNumber String?
   notes           String?           @db.Text
+  cancelledAt     DateTime?
+  cancelledById   String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -328,6 +331,7 @@ model PaymentRecord {
 
   @@index([organizationId, status, dueDate])
   @@index([organizationId, clientId])
+  @@index([organizationId, paidDate])
   @@index([projectId])
 }
 

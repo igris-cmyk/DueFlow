@@ -11,7 +11,7 @@ export default function ProofVaultPage() {
     <EmptyModulePage
       eyebrow="Evidence foundation"
       title="Proof Vault"
-      message="Proof Vault will organize invoices, screenshots, work photos, approvals, and payment evidence."
+      message="Proof upload comes after the core ledger. Phase 3 keeps project and payment records ready for future proof metadata."
       icon={FileArchive}
       futurePoints={[
         "Keep proof grouped by client and project.",
