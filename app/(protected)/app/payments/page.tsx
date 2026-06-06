@@ -38,7 +38,14 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
           : undefined,
     },
     orderBy: { createdAt: "desc" },
-    include: {
+    take: 75,
+    select: {
+      id: true,
+      amount: true,
+      status: true,
+      paidDate: true,
+      createdAt: true,
+      method: true,
       client: { select: { name: true } },
       project: { select: { name: true } },
     },

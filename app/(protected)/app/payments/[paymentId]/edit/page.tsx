@@ -18,16 +18,9 @@ export const metadata: Metadata = {
 export default async function EditPaymentPage({ params }: EditPaymentPageProps) {
   const { paymentId } = await params;
   const { organization } = await requireOrganization();
-  const [payment, projects] = await Promise.all([
-    getDb().paymentRecord.findFirst({
-      where: { id: paymentId, organizationId: organization.id, type: "PAYMENT" },
-    }),
-    getDb().project.findMany({
-      where: { organizationId: organization.id, status: { not: "CANCELLED" } },
-      orderBy: { updatedAt: "desc" },
-      include: { client: { select: { name: true } } },
-    }),
-  ]);
+  const payment = await getDb().paymentRecord.findFirst({
+    where: { id: paymentId, organizationId: organization.id, type: "PAYMENT" },
+  });
 
   if (!payment) {
     notFound();
@@ -37,6 +30,32 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
     notFound();
   }
 
+  const projectSelect = {
+    id: true,
+    name: true,
+    pendingAmount: true,
+    client: { select: { name: true } },
+  } as const;
+  const [currentProject, recentProjects] = await Promise.all([
+    getDb().project.findFirst({
+      where: { id: payment.projectId, organizationId: organization.id },
+      select: projectSelect,
+    }),
+    getDb().project.findMany({
+      where: {
+        organizationId: organization.id,
+        status: { not: "CANCELLED" },
+        pendingAmount: { gt: 0 },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+      select: projectSelect,
+    }),
+  ]);
+  const projects = [
+    ...(currentProject ? [currentProject] : []),
+    ...recentProjects.filter((project) => project.id !== currentProject?.id),
+  ];
   const action = updatePaymentAction.bind(null, payment.id);
 
   return (

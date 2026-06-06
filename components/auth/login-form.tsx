@@ -48,7 +48,9 @@ export function LoginForm({ accountCreated = false }: LoginFormProps) {
         error={state.fieldErrors?.password?.[0]}
       />
 
-      <SubmitButton pendingLabel="Signing you in...">Sign in</SubmitButton>
+      <SubmitButton pendingLabel="Signing you in..." immediateLock>
+        Sign in
+      </SubmitButton>
     </form>
   );
 }

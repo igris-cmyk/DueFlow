@@ -21,11 +21,40 @@ export default async function NewPaymentPage({
 }: NewPaymentPageProps) {
   const { projectId } = await searchParams;
   const { organization } = await requireOrganization();
-  const projects = await getDb().project.findMany({
-    where: { organizationId: organization.id, status: { not: "CANCELLED" } },
-    orderBy: { updatedAt: "desc" },
-    include: { client: { select: { name: true } } },
-  });
+  const projectSelect = {
+    id: true,
+    name: true,
+    pendingAmount: true,
+    client: { select: { name: true } },
+  } as const;
+  const [selectedProject, recentProjects] = await Promise.all([
+    projectId
+      ? getDb().project.findFirst({
+          where: {
+            id: projectId,
+            organizationId: organization.id,
+            status: { not: "CANCELLED" },
+            pendingAmount: { gt: 0 },
+          },
+          select: projectSelect,
+        })
+      : Promise.resolve(null),
+    getDb().project.findMany({
+      where: {
+        organizationId: organization.id,
+        status: { not: "CANCELLED" },
+        pendingAmount: { gt: 0 },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+      select: projectSelect,
+    }),
+  ]);
+  const projects = [
+    ...(selectedProject ? [selectedProject] : []),
+    ...recentProjects.filter((project) => project.id !== selectedProject?.id),
+  ];
+  const initialProjectId = selectedProject?.id ?? "";
 
   return (
     <LedgerFormShell
@@ -38,8 +67,8 @@ export default async function NewPaymentPage({
       {projects.length === 0 ? (
         <LedgerEmptyState
           icon={FolderKanban}
-          title="Create a project first"
-          message="A received payment must attach to a tenant-owned project with a defined total value."
+          title="No payable projects yet"
+          message="A received payment must attach to a tenant-owned project with a pending balance."
           href="/app/projects/new"
           cta="Add project"
         />
@@ -55,7 +84,7 @@ export default async function NewPaymentPage({
           submitLabel="Record payment"
           pendingLabel="Recording payment..."
           payment={{
-            projectId: projectId ?? "",
+            projectId: initialProjectId,
             amount: "",
             paidDate: new Date().toISOString().slice(0, 10),
             method: "",

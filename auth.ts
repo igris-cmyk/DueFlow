@@ -5,6 +5,10 @@ import { getDb } from "@/lib/db";
 import { loginSchema, normalizeEmail } from "@/lib/validation/auth";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost:
+    process.env.NODE_ENV !== "production" ||
+    Boolean(process.env.VERCEL) ||
+    process.env.AUTH_TRUST_HOST === "true",
   pages: {
     signIn: "/login",
   },

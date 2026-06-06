@@ -47,7 +47,7 @@ export function SignupForm() {
         error={state.fieldErrors?.password?.[0]}
       />
 
-      <SubmitButton pendingLabel="Creating your account...">
+      <SubmitButton pendingLabel="Creating your account..." immediateLock>
         Create account
       </SubmitButton>
       <p className="text-center text-[0.8rem] leading-5 text-[#657269]">

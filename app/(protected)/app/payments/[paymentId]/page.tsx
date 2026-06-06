@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { cancelPaymentAction } from "@/app/(protected)/app/payments/actions";
 import { LedgerBadge } from "@/components/app/ledger-badge";
+import { DestructiveSubmitButton } from "@/components/forms/destructive-submit-button";
 import { requireOrganization } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate, statusLabel } from "@/lib/ledger";
@@ -32,9 +33,19 @@ export default async function PaymentDetailPage({
   const { organization } = await requireOrganization();
   const payment = await getDb().paymentRecord.findFirst({
     where: { id: paymentId, organizationId: organization.id, type: "PAYMENT" },
-    include: {
-      client: true,
-      project: true,
+    select: {
+      id: true,
+      type: true,
+      amount: true,
+      status: true,
+      paidDate: true,
+      method: true,
+      referenceNumber: true,
+      notes: true,
+      cancelledAt: true,
+      createdAt: true,
+      client: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true } },
     },
   });
 
@@ -69,12 +80,12 @@ export default async function PaymentDetailPage({
           {payment.status !== "CANCELLED" ? (
             <form action={cancelPaymentAction}>
               <input type="hidden" name="paymentId" value={payment.id} />
-              <button
-                type="submit"
-                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#edc7c1] bg-[var(--red-soft)] px-4 text-sm font-extrabold text-[var(--red)] transition hover:border-[var(--red)]"
+              <DestructiveSubmitButton
+                pendingLabel="Cancelling..."
+                className="min-h-11 px-4"
               >
                 Cancel payment
-              </button>
+              </DestructiveSubmitButton>
             </form>
           ) : null}
         </div>

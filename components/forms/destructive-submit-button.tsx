@@ -2,22 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { ArrowRight, LoaderCircle } from "lucide-react";
+import { Ban, LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type SubmitButtonProps = {
+type DestructiveSubmitButtonProps = {
   children: React.ReactNode;
   pendingLabel: string;
   className?: string;
-  immediateLock?: boolean;
 };
 
-export function SubmitButton({
+export function DestructiveSubmitButton({
   children,
   pendingLabel,
   className,
-  immediateLock = false,
-}: SubmitButtonProps) {
+}: DestructiveSubmitButtonProps) {
   const { pending } = useFormStatus();
   const [locked, setLocked] = useState(false);
   const lockTimerRef = useRef<number | null>(null);
@@ -57,10 +55,6 @@ export function SubmitButton({
       disabled={isBusy}
       aria-live="polite"
       onClick={(event) => {
-        if (!immediateLock) {
-          return;
-        }
-
         const form = event.currentTarget.form;
 
         if (form && !form.checkValidity()) {
@@ -77,14 +71,14 @@ export function SubmitButton({
         }, 0);
       }}
       className={cn(
-        "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--app-sidebar)] px-5 py-3 text-[0.95rem] font-extrabold text-white shadow-[0_10px_24px_rgba(31,40,34,0.17)] transition hover:bg-[#2a352d] hover:shadow-[0_12px_28px_rgba(31,40,34,0.2)] disabled:cursor-wait disabled:opacity-75",
+        "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#edc7c1] bg-[var(--red-soft)] px-3 text-sm font-extrabold text-[var(--red)] transition hover:border-[var(--red)] disabled:cursor-wait disabled:opacity-75",
         className,
       )}
     >
       {isBusy ? (
         <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
       ) : (
-        <ArrowRight aria-hidden="true" className="size-4" />
+        <Ban aria-hidden="true" className="size-4" />
       )}
       {isBusy ? pendingLabel : children}
     </button>

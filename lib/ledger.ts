@@ -116,6 +116,7 @@ export function todayUtcStartFrom(value: Date) {
 export async function recalculateProjectBalances(
   tx: Prisma.TransactionClient,
   projectId: string,
+  organizationId?: string,
 ) {
   const project = await tx.project.findUnique({
     where: { id: projectId },
@@ -128,6 +129,7 @@ export async function recalculateProjectBalances(
 
   const aggregate = await tx.paymentRecord.aggregate({
     where: {
+      organizationId,
       projectId,
       ...validReceivedPaymentWhere,
     },

@@ -24,80 +24,129 @@ export default async function TodayPage() {
   const today = todayUtcStart();
   const week = getCurrentWeekRange();
   const month = getCurrentMonthRange();
+  const activeProjectWhere = {
+    organizationId: organization.id,
+    status: { not: "CANCELLED" },
+  } satisfies Prisma.ProjectWhereInput;
+  const pendingProjectWhere = {
+    ...activeProjectWhere,
+    pendingAmount: { gt: 0 },
+  } satisfies Prisma.ProjectWhereInput;
+  const overdueProjectWhere = {
+    ...pendingProjectWhere,
+    dueDate: { lt: today },
+  } satisfies Prisma.ProjectWhereInput;
+  const dueThisWeekWhere = {
+    ...pendingProjectWhere,
+    dueDate: { gte: today, lt: week.end },
+  } satisfies Prisma.ProjectWhereInput;
 
-  const [clientsCount, projects, receivedThisMonth, recentPayments] =
-    await Promise.all([
-      db.client.count({ where: { organizationId: organization.id } }),
-      db.project.findMany({
-        where: {
-          organizationId: organization.id,
-          status: { not: "CANCELLED" },
-        },
-        orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
-        include: { client: { select: { name: true } } },
-      }),
-      db.paymentRecord.aggregate({
-        where: {
-          organizationId: organization.id,
-          type: "PAYMENT",
-          status: { not: "CANCELLED" },
-          OR: [
-            { paidDate: { gte: month.start, lt: month.end } },
-            {
-              paidDate: null,
-              createdAt: { gte: month.start, lt: month.end },
-            },
-          ],
-        },
-        _sum: { amount: true },
-      }),
-      db.paymentRecord.findMany({
-        where: {
-          organizationId: organization.id,
-          type: "PAYMENT",
-          status: { not: "CANCELLED" },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        include: {
-          client: { select: { name: true } },
-          project: { select: { name: true } },
-        },
-      }),
-    ]);
+  const [
+    clientsCount,
+    activeProjectsCount,
+    totalPendingAggregate,
+    overdueAggregate,
+    dueThisWeekAggregate,
+    receivedThisMonth,
+    overdueProjects,
+    dueThisWeekProjects,
+    pendingProjects,
+    recentPayments,
+  ] = await Promise.all([
+    db.client.count({ where: { organizationId: organization.id } }),
+    db.project.count({ where: activeProjectWhere }),
+    db.project.aggregate({
+      where: activeProjectWhere,
+      _sum: { pendingAmount: true },
+    }),
+    db.project.aggregate({
+      where: overdueProjectWhere,
+      _sum: { pendingAmount: true },
+    }),
+    db.project.aggregate({
+      where: dueThisWeekWhere,
+      _sum: { pendingAmount: true },
+    }),
+    db.paymentRecord.aggregate({
+      where: {
+        organizationId: organization.id,
+        type: "PAYMENT",
+        status: { not: "CANCELLED" },
+        OR: [
+          { paidDate: { gte: month.start, lt: month.end } },
+          {
+            paidDate: null,
+            createdAt: { gte: month.start, lt: month.end },
+          },
+        ],
+      },
+      _sum: { amount: true },
+    }),
+    db.project.findMany({
+      where: overdueProjectWhere,
+      orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        dueDate: true,
+        pendingAmount: true,
+        client: { select: { name: true } },
+      },
+    }),
+    db.project.findMany({
+      where: dueThisWeekWhere,
+      orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        dueDate: true,
+        pendingAmount: true,
+        client: { select: { name: true } },
+      },
+    }),
+    db.project.findMany({
+      where: pendingProjectWhere,
+      orderBy: [{ pendingAmount: "desc" }, { updatedAt: "desc" }],
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        paidAmount: true,
+        pendingAmount: true,
+        client: { select: { name: true } },
+      },
+    }),
+    db.paymentRecord.findMany({
+      where: {
+        organizationId: organization.id,
+        type: "PAYMENT",
+        status: { not: "CANCELLED" },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        amount: true,
+        paidDate: true,
+        createdAt: true,
+        client: { select: { name: true } },
+        project: { select: { name: true } },
+      },
+    }),
+  ]);
 
-  if (clientsCount === 0 && projects.length === 0) {
+  if (clientsCount === 0 && activeProjectsCount === 0) {
     return <TodayEmptyState />;
   }
 
-  const totalPending = projects.reduce(
-    (sum, project) => sum.plus(project.pendingAmount),
-    new Prisma.Decimal(0),
-  );
-  const overdueProjects = projects.filter(
-    (project) =>
-      project.dueDate &&
-      project.dueDate < today &&
-      new Prisma.Decimal(project.pendingAmount).gt(0),
-  );
-  const overdueTotal = overdueProjects.reduce(
-    (sum, project) => sum.plus(project.pendingAmount),
-    new Prisma.Decimal(0),
-  );
-  const dueThisWeekProjects = projects.filter(
-    (project) =>
-      project.dueDate &&
-      project.dueDate >= week.start &&
-      project.dueDate < week.end &&
-      new Prisma.Decimal(project.pendingAmount).gt(0),
-  );
-  const dueThisWeek = dueThisWeekProjects.reduce(
-    (sum, project) => sum.plus(project.pendingAmount),
-    new Prisma.Decimal(0),
-  );
-  const pendingProjects = projects
-    .filter((project) => new Prisma.Decimal(project.pendingAmount).gt(0))
-    .slice(0, 6);
+  const totalPending =
+    totalPendingAggregate._sum.pendingAmount ?? new Prisma.Decimal(0);
+  const overdueTotal =
+    overdueAggregate._sum.pendingAmount ?? new Prisma.Decimal(0);
+  const dueThisWeek =
+    dueThisWeekAggregate._sum.pendingAmount ?? new Prisma.Decimal(0);
 
   const cards = [
     {
@@ -127,7 +176,7 @@ export default async function TodayPage() {
     },
     {
       label: "Active projects",
-      value: String(projects.length),
+      value: String(activeProjectsCount),
       tone: "slate",
     },
   ];

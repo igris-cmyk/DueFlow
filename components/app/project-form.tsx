@@ -156,7 +156,9 @@ export function ProjectForm({
         error={state.fieldErrors?.paymentTerms?.[0]}
       />
 
-      <SubmitButton pendingLabel={pendingLabel}>{submitLabel}</SubmitButton>
+      <SubmitButton pendingLabel={pendingLabel} immediateLock>
+        {submitLabel}
+      </SubmitButton>
     </form>
   );
 }

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cancelPaymentAction } from "@/app/(protected)/app/payments/actions";
 import { LedgerBadge } from "@/components/app/ledger-badge";
+import { DestructiveSubmitButton } from "@/components/forms/destructive-submit-button";
 import { requireOrganization } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import {
@@ -45,11 +46,39 @@ export default async function ProjectDetailPage({
   const { organization } = await requireOrganization();
   const project = await getDb().project.findFirst({
     where: { id: projectId, organizationId: organization.id },
-    include: {
-      client: true,
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      status: true,
+      totalValue: true,
+      paidAmount: true,
+      pendingAmount: true,
+      startDate: true,
+      dueDate: true,
+      completionDate: true,
+      paymentTerms: true,
+      riskStatus: true,
+      client: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+        },
+      },
       paymentRecords: {
         where: { type: "PAYMENT" },
         orderBy: { createdAt: "desc" },
+        take: 25,
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          paidDate: true,
+          createdAt: true,
+          method: true,
+        },
       },
     },
   });
@@ -142,9 +171,9 @@ export default async function ProjectDetailPage({
         <div className="rounded-[1.35rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-5 shadow-[var(--app-shadow-soft)]">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-black tracking-[-0.035em] text-[var(--app-text)]">
-              Payment history
+              Recent payment history
             </h2>
-            <LedgerBadge>{project.paymentRecords.length} records</LedgerBadge>
+            <LedgerBadge>{project.paymentRecords.length} shown</LedgerBadge>
           </div>
           <div className="mt-4 space-y-3">
             {project.paymentRecords.length === 0 ? (
@@ -176,12 +205,9 @@ export default async function ProjectDetailPage({
                   {payment.status !== "CANCELLED" ? (
                     <form action={cancelPaymentAction}>
                       <input type="hidden" name="paymentId" value={payment.id} />
-                      <button
-                        type="submit"
-                        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#edc7c1] bg-[var(--red-soft)] px-3 text-sm font-extrabold text-[var(--red)] transition hover:border-[var(--red)]"
-                      >
+                      <DestructiveSubmitButton pendingLabel="Cancelling...">
                         Cancel
-                      </button>
+                      </DestructiveSubmitButton>
                     </form>
                   ) : null}
                 </div>

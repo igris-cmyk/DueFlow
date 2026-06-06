@@ -116,7 +116,9 @@ export function ClientForm({
         error={state.fieldErrors?.notes?.[0]}
       />
 
-      <SubmitButton pendingLabel={pendingLabel}>{submitLabel}</SubmitButton>
+      <SubmitButton pendingLabel={pendingLabel} immediateLock>
+        {submitLabel}
+      </SubmitButton>
     </form>
   );
 }

@@ -142,7 +142,7 @@ export async function updateProjectAction(
         select: { id: true, name: true, totalValue: true },
       });
 
-      await recalculateProjectBalances(tx, existing.id);
+      await recalculateProjectBalances(tx, existing.id, organization.id);
 
       await tx.activityLog.create({
         data: {

@@ -23,6 +23,19 @@ export default async function EditProjectPage({
   const [project, clients] = await Promise.all([
     getDb().project.findFirst({
       where: { id: projectId, organizationId: organization.id },
+      select: {
+        id: true,
+        clientId: true,
+        name: true,
+        description: true,
+        status: true,
+        totalValue: true,
+        startDate: true,
+        dueDate: true,
+        completionDate: true,
+        paymentTerms: true,
+        riskStatus: true,
+      },
     }),
     getDb().client.findMany({
       where: { organizationId: organization.id },

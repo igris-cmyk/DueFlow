@@ -14,37 +14,87 @@ import {
 } from "@/lib/ledger";
 import { paymentSchema } from "@/lib/validation/ledger";
 
+const LEDGER_TRANSACTION_RETRIES = 2;
+
+async function runLedgerTransaction<T>(
+  operation: (tx: Prisma.TransactionClient) => Promise<T>,
+) {
+  for (let attempt = 1; attempt <= LEDGER_TRANSACTION_RETRIES; attempt += 1) {
+    try {
+      return await getDb().$transaction(operation, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (error) {
+      if (attempt < LEDGER_TRANSACTION_RETRIES && isWriteConflict(error)) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error("Unable to complete ledger transaction.");
+}
+
+function isWriteConflict(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2034"
+  );
+}
+
 async function getProjectRemaining(
   tx: Prisma.TransactionClient,
+  organizationId: string,
   projectId: string,
   excludePaymentId?: string,
 ) {
-  const project = await tx.project.findFirst({
-    where: { id: projectId },
-    select: { id: true, organizationId: true, clientId: true, name: true, totalValue: true },
-  });
+  const [project, paid] = await Promise.all([
+    tx.project.findFirst({
+      where: { id: projectId, organizationId },
+      select: { id: true, clientId: true, name: true, totalValue: true },
+    }),
+    tx.paymentRecord.aggregate({
+      where: {
+        organizationId,
+        projectId,
+        id: excludePaymentId ? { not: excludePaymentId } : undefined,
+        ...validReceivedPaymentWhere,
+      },
+      _sum: { amount: true },
+    }),
+  ]);
 
   if (!project) {
     return null;
   }
 
-  const paid = await tx.paymentRecord.aggregate({
-    where: {
-      projectId,
-      id: excludePaymentId ? { not: excludePaymentId } : undefined,
-      ...validReceivedPaymentWhere,
-    },
-    _sum: { amount: true },
-  });
-
   const paidAmount = paid._sum.amount ?? new Prisma.Decimal(0);
   return {
     ...project,
+    paidAmount,
     remaining: Prisma.Decimal.max(
       new Prisma.Decimal(project.totalValue).minus(paidAmount),
       new Prisma.Decimal(0),
     ),
   };
+}
+
+async function updateProjectBalanceFromPaid(
+  tx: Prisma.TransactionClient,
+  project: { id: string; totalValue: Prisma.Decimal },
+  paidAmount: Prisma.Decimal,
+) {
+  const pendingAmount = Prisma.Decimal.max(
+    new Prisma.Decimal(project.totalValue).minus(paidAmount),
+    new Prisma.Decimal(0),
+  );
+
+  return tx.project.update({
+    where: { id: project.id },
+    data: { paidAmount, pendingAmount },
+    select: { id: true },
+  });
 }
 
 export async function createPaymentAction(
@@ -61,10 +111,14 @@ export async function createPaymentAction(
   let projectId: string;
 
   try {
-    const result = await getDb().$transaction(async (tx) => {
-      const project = await getProjectRemaining(tx, parsed.data.projectId);
+    const result = await runLedgerTransaction(async (tx) => {
+      const project = await getProjectRemaining(
+        tx,
+        organization.id,
+        parsed.data.projectId,
+      );
 
-      if (!project || project.organizationId !== organization.id) {
+      if (!project) {
         return "invalid-project" as const;
       }
 
@@ -77,6 +131,7 @@ export async function createPaymentAction(
         return "overpayment" as const;
       }
 
+      const paidAmount = project.paidAmount.plus(amount);
       const payment = await tx.paymentRecord.create({
         data: {
           organizationId: organization.id,
@@ -93,7 +148,7 @@ export async function createPaymentAction(
         select: { id: true, amount: true },
       });
 
-      await recalculateProjectBalances(tx, project.id);
+      await updateProjectBalanceFromPaid(tx, project, paidAmount);
 
       await tx.activityLog.create({
         data: {
@@ -138,7 +193,6 @@ export async function createPaymentAction(
   revalidatePath("/app/payments");
   revalidatePath(`/app/projects/${projectId}`);
   revalidatePath("/app/projects");
-  revalidatePath("/app/clients");
   revalidatePath("/app/today");
   redirect(`/app/projects/${projectId}`);
 }
@@ -158,16 +212,24 @@ export async function updatePaymentAction(
   let redirectProjectId = parsed.data.projectId;
 
   try {
-    const result = await getDb().$transaction(async (tx) => {
-      const existing = await tx.paymentRecord.findFirst({
-        where: { id: paymentId, organizationId: organization.id },
-        select: {
-          id: true,
-          projectId: true,
-          amount: true,
-          status: true,
-        },
-      });
+    const result = await runLedgerTransaction(async (tx) => {
+      const [existing, project] = await Promise.all([
+        tx.paymentRecord.findFirst({
+          where: { id: paymentId, organizationId: organization.id },
+          select: {
+            id: true,
+            projectId: true,
+            amount: true,
+            status: true,
+          },
+        }),
+        getProjectRemaining(
+          tx,
+          organization.id,
+          parsed.data.projectId,
+          paymentId,
+        ),
+      ]);
 
       if (!existing) {
         notFound();
@@ -177,9 +239,7 @@ export async function updatePaymentAction(
         return "cancelled" as const;
       }
 
-      const project = await getProjectRemaining(tx, parsed.data.projectId, existing.id);
-
-      if (!project || project.organizationId !== organization.id) {
+      if (!project) {
         return "invalid-project" as const;
       }
 
@@ -192,6 +252,7 @@ export async function updatePaymentAction(
         return "overpayment" as const;
       }
 
+      const paidAmount = project.paidAmount.plus(amount);
       const payment = await tx.paymentRecord.update({
         where: { id: existing.id },
         data: {
@@ -208,9 +269,13 @@ export async function updatePaymentAction(
         select: { id: true, amount: true, projectId: true },
       });
 
-      await recalculateProjectBalances(tx, existing.projectId);
       if (existing.projectId !== project.id) {
-        await recalculateProjectBalances(tx, project.id);
+        await Promise.all([
+          recalculateProjectBalances(tx, existing.projectId, organization.id),
+          updateProjectBalanceFromPaid(tx, project, paidAmount),
+        ]);
+      } else {
+        await updateProjectBalanceFromPaid(tx, project, paidAmount);
       }
 
       await tx.activityLog.create({
@@ -266,7 +331,6 @@ export async function updatePaymentAction(
   revalidatePath(`/app/payments/${paymentId}`);
   revalidatePath(`/app/projects/${redirectProjectId}`);
   revalidatePath("/app/projects");
-  revalidatePath("/app/clients");
   revalidatePath("/app/today");
   redirect(`/app/payments/${paymentId}`);
 }
@@ -279,7 +343,7 @@ export async function cancelPaymentAction(formData: FormData) {
     notFound();
   }
 
-  const result = await getDb().$transaction(async (tx) => {
+  const result = await runLedgerTransaction(async (tx) => {
     const existing = await tx.paymentRecord.findFirst({
       where: { id: paymentId, organizationId: organization.id },
       select: { id: true, projectId: true, amount: true, status: true },
@@ -299,7 +363,7 @@ export async function cancelPaymentAction(formData: FormData) {
         },
       });
 
-      await recalculateProjectBalances(tx, existing.projectId);
+      await recalculateProjectBalances(tx, existing.projectId, organization.id);
 
       await tx.activityLog.create({
         data: {
@@ -323,6 +387,5 @@ export async function cancelPaymentAction(formData: FormData) {
   revalidatePath(`/app/payments/${paymentId}`);
   revalidatePath(`/app/projects/${result.projectId}`);
   revalidatePath("/app/projects");
-  revalidatePath("/app/clients");
   revalidatePath("/app/today");
 }

@@ -21,12 +21,21 @@ export default async function ProjectsPage() {
   const projects = await getDb().project.findMany({
     where: { organizationId: organization.id },
     orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
-    include: {
+    take: 50,
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      totalValue: true,
+      paidAmount: true,
+      pendingAmount: true,
+      dueDate: true,
       client: { select: { name: true } },
       paymentRecords: {
         where: { type: "PAYMENT" },
         orderBy: { createdAt: "desc" },
         take: 1,
+        select: { paidDate: true, createdAt: true },
       },
     },
   });
