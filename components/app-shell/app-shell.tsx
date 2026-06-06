@@ -39,7 +39,7 @@ export function AppShell({
 
   return (
     <div className="min-h-dvh bg-[var(--app-bg)] text-[var(--app-text)] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-dvh flex-col bg-[var(--app-sidebar)] px-5 py-6 text-[var(--app-sidebar-text)] lg:flex">
+      <aside className="sticky top-0 hidden h-dvh min-h-0 flex-col overflow-hidden bg-[var(--app-sidebar)] px-5 py-6 text-[var(--app-sidebar-text)] lg:flex">
         <Link
           href="/app/today"
           aria-label="DueFlow Today’s Cash Desk"
@@ -75,14 +75,16 @@ export function AppShell({
           </p>
         </div>
 
-        <div className="mt-7 flex-1">
-          <p className="mb-3 px-2 text-[0.7rem] font-extrabold uppercase tracking-[0.12em] text-[#91a097]">
+        <div className="mt-7 flex min-h-0 flex-1 flex-col">
+          <p className="mb-3 shrink-0 px-2 text-[0.7rem] font-extrabold uppercase tracking-[0.12em] text-[#a9b8af]">
             Workspace
           </p>
-          <AppNav />
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-4">
+            <AppNav />
+          </div>
         </div>
 
-        <div className="rounded-[1.15rem] border border-[var(--app-sidebar-border)] bg-[var(--app-sidebar-surface)] p-4">
+        <div className="mt-3 shrink-0 rounded-[1.15rem] border border-[var(--app-sidebar-border)] bg-[var(--app-sidebar-surface)] p-4 [@media(max-height:820px)]:hidden">
           <div className="flex items-start gap-3">
             <ShieldCheck
               aria-hidden="true"
@@ -104,14 +106,14 @@ export function AppShell({
         <header className="sticky top-0 z-40 border-b border-[var(--app-border)] bg-[var(--app-surface)]/95 backdrop-blur-xl">
           <div className="flex min-h-20 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
-              <details className="group relative lg:hidden">
+              <details className="group relative z-50 lg:hidden">
                 <summary
                   aria-label="Open workspace navigation"
                   className="grid size-10 cursor-pointer list-none place-items-center rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] text-[var(--app-text-soft)] shadow-sm transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)] [&::-webkit-details-marker]:hidden"
                 >
                   <Menu aria-hidden="true" className="size-4.5" />
                 </summary>
-                <div className="absolute left-0 top-12 w-[min(19rem,calc(100vw-2rem))] rounded-[1.25rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3 shadow-[var(--app-shadow)]">
+                <div className="absolute left-0 top-12 z-50 max-h-[min(31rem,calc(100dvh-6rem))] w-[min(19rem,calc(100vw-2rem))] overflow-y-auto rounded-[1.25rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3 shadow-[var(--app-shadow)]">
                   <div className="mb-3 border-b border-[var(--app-border)] px-2 pb-3">
                     <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-[var(--app-accent)]">
                       DueFlow workspace
