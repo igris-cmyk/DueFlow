@@ -8,7 +8,7 @@ Every pending payment should have a client, a project, proof, a reason, and a ne
 
 ## Current Status
 
-This repository contains **Phase 3: Core Ledger System**:
+This repository contains **Phase 4A: Proof Vault Foundation**:
 
 * Premium public marketing routes from Phase 1 and Phase 1.5
 * Email and password signup, login, and logout
@@ -26,8 +26,12 @@ This repository contains **Phase 3: Core Ledger System**:
 * Transactional project balance recalculation for paid and pending amounts
 * Real Today’s Cash Desk aggregates for pending, overdue, due-this-week, and received-this-month money
 * Activity logs for core ledger create, update, and cancellation actions
+* Tenant-safe proof metadata create, list, detail, edit, and archive workflows
+* Proof records linked to organization, client, project, and optionally payment
+* Proof completeness indicators on project and payment detail pages
+* Activity logs for proof create, update, and archive actions
 
-Phase 3 does not include billing, AI, file uploads, invitation emails, live reports, proof uploads, promise tracking, or follow-up automation.
+Phase 4A does not include billing, AI, OCR, PDF Proof Packs, WhatsApp API integration, invitation emails, live reports, real file upload storage, promise tracking, or follow-up automation.
 
 ## Tech Stack
 
@@ -148,6 +152,9 @@ Protected product:
 /app/payments/[paymentId]/edit
 /app/follow-ups
 /app/proof-vault
+/app/proof-vault/new
+/app/proof-vault/[proofId]
+/app/proof-vault/[proofId]/edit
 /app/reports
 /app/settings
 ```
@@ -173,20 +180,50 @@ Received payments are rejected if they would exceed the remaining pending
 balance. Cancelled payment records remain in the database and no longer count
 toward paid totals.
 
+## Proof Vault
+
+Phase 4A treats a proof item as evidence metadata plus optional external
+reference fields. DueFlow does not upload or store binary files yet.
+
+Proof records must belong to the current organization and a project. The
+client is derived from the selected project server-side, and payment linking is
+optional. When a payment is linked, the server verifies that the payment
+belongs to the same organization and selected project.
+
+The Proof Vault supports:
+
+```txt
+/app/proof-vault
+/app/proof-vault/new
+/app/proof-vault/[proofId]
+/app/proof-vault/[proofId]/edit
+```
+
+Project detail pages show project proof completeness. Payment detail pages show
+payment proof completeness. In Phase 4A, completeness means at least one active
+proof item is attached to that project or payment. Archived proof is retained
+but does not count as active proof.
+
+Reference URLs and file URLs are displayed as external links only when present
+and safe to open. They do not imply that DueFlow uploaded, hosted, verified, or
+analyzed the file.
+
 ## Migration Notes
 
 Phase 3 adds `PaymentStatus.CANCELLED`, `PaymentRecord.cancelledAt`,
 `PaymentRecord.cancelledById`, and an index for organization-scoped paid-date
-queries. The migration is:
+queries. Phase 4A adds `ProofStatus`, proof title/source/status/archive
+metadata, and optional proof-to-payment linking. The migrations are:
 
 ```txt
 prisma/migrations/20260605000000_phase_3_core_ledger/migration.sql
+prisma/migrations/20260608000000_phase_4a_proof_vault_foundation/migration.sql
 ```
 
 Apply migrations to the intended PostgreSQL database before redeploying:
 
 ```bash
-npm run db:migrate -- --name phase_3_core_ledger
+npm run db:migrate -- --name phase_4a_proof_vault_foundation
 ```
 
 ## Data and Tenant Safety
@@ -195,12 +232,14 @@ All product models include `organizationId`. Product queries and mutations filte
 
 Organization onboarding creates the organization, OWNER membership, and `organization.created` activity log entry inside one database transaction. The `passwordHash` field is never selected by client-facing user helpers.
 
-Client, project, and payment mutations write concise activity log entries for
-core ledger actions without storing secrets or unnecessary PII.
+Client, project, payment, and proof mutations write concise activity log
+entries for product actions without storing secrets or unnecessary PII. Proof
+activity metadata stores titles, types, project IDs/names, and linked payment
+IDs; external URLs remain on the proof record itself.
 
 ## Vercel Deployment
 
-Before redeploying Phase 3, configure these Vercel environment variables for the relevant environments:
+Before redeploying Phase 4A, configure these Vercel environment variables for the relevant environments:
 
 * `DATABASE_URL`
 * `AUTH_SECRET`
@@ -218,14 +257,14 @@ intended database before opening auth flows to users.
 * No OAuth providers
 * No team invitation workflow
 * Organization settings are read-only
-* No live uploads, billing, AI, analytics, reports engine, or proof backend
+* No live uploads, billing, AI, OCR, analytics, reports engine, PDF Proof Packs, or storage-backed proof previews
 * No archive workflow for clients or projects yet
 * No promise tracker or follow-up engine
 * No fake operational data is seeded
 
 ## Recommended Next Phase
 
-**Phase 4A: Proof Vault Foundation** should add proof metadata CRUD and a storage decision for invoices, approvals, screenshots, and work photos linked to the real ledger.
+**Phase 4B: Real Proof Upload Storage** should choose and integrate a storage provider, add secure upload flows, enforce file size/type limits, and connect uploaded file metadata to the existing `ProofItem` records without changing the ledger links built in Phase 4A.
 
 ## License
 

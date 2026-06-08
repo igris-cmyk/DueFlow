@@ -87,3 +87,40 @@ export const paymentSchema = z.object({
   referenceNumber: optionalTrimmed(120),
   notes: optionalTrimmed(1000),
 });
+
+const optionalUrl = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") {
+      return value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  },
+  z.url("Enter a valid reference URL.").max(2048).optional(),
+);
+
+export const proofSchema = z.object({
+  title: requiredTrimmed("Proof title", 140),
+  type: z.enum([
+    "INVOICE",
+    "WORK_PHOTO",
+    "WHATSAPP_SCREENSHOT",
+    "APPROVAL",
+    "BILL_PHOTO",
+    "DELIVERY_PROOF",
+    "SIGNED_DOCUMENT",
+    "VOICE_NOTE",
+    "OTHER",
+  ]),
+  status: z
+    .enum(["READY", "MISSING_CONTEXT", "ARCHIVED"])
+    .default("READY"),
+  projectId: requiredTrimmed("Project", 120),
+  paymentRecordId: optionalTrimmed(120),
+  description: optionalTrimmed(1600),
+  sourceUrl: optionalUrl,
+  fileName: optionalTrimmed(180),
+  fileUrl: optionalUrl,
+  redirectTo: z.enum(["proof", "project", "payment"]).default("proof"),
+});

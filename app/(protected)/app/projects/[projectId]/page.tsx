@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import {
   AlertTriangle,
   ArrowRight,
-  FileArchive,
   HandCoins,
   ListTodo,
   Pencil,
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 import { cancelPaymentAction } from "@/app/(protected)/app/payments/actions";
 import { LedgerBadge } from "@/components/app/ledger-badge";
+import { ProofSection } from "@/components/app/proof-section";
 import { DestructiveSubmitButton } from "@/components/forms/destructive-submit-button";
 import { requireOrganization } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
@@ -21,6 +21,7 @@ import {
   isProjectOverdue,
   statusLabel,
 } from "@/lib/ledger";
+import { activeProofWhere } from "@/lib/proof";
 
 type ProjectDetailPageProps = {
   params: Promise<{ projectId: string }>;
@@ -78,6 +79,19 @@ export default async function ProjectDetailPage({
           paidDate: true,
           createdAt: true,
           method: true,
+        },
+      },
+      proofItems: {
+        where: activeProofWhere(),
+        orderBy: { createdAt: "desc" },
+        take: 6,
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          status: true,
+          description: true,
+          createdAt: true,
         },
       },
     },
@@ -217,8 +231,18 @@ export default async function ProjectDetailPage({
         </div>
       </section>
 
-      <section className="mt-5 grid gap-4 md:grid-cols-3">
-        <Future icon={FileArchive} title="Proof" copy="Proof upload comes after the core ledger is reliable." />
+      <div className="mt-5">
+        <ProofSection
+          title="Project proof"
+          emptyTitle="This project has no proof yet."
+          emptyMessage="Attach invoices, approvals, screenshots, or work photos to this project."
+          addHref={`/app/proof-vault/new?projectId=${project.id}`}
+          addLabel={project.proofItems.length === 0 ? "Add proof" : "Add more proof"}
+          proofs={project.proofItems}
+        />
+      </div>
+
+      <section className="mt-5 grid gap-4 md:grid-cols-2">
         <Future icon={ListTodo} title="Follow-ups" copy="Follow-up queues will use real project balances later." />
         <Future icon={AlertTriangle} title="Promises" copy="Promise tracking is deferred until payments are grounded." />
       </section>

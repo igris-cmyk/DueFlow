@@ -82,6 +82,12 @@ enum ProofType {
   OTHER
 }
 
+enum ProofStatus {
+  READY
+  MISSING_CONTEXT
+  ARCHIVED
+}
+
 enum PromiseStatus {
   OPEN
   KEPT
@@ -326,6 +332,7 @@ model PaymentRecord {
   organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project         Project           @relation(fields: [projectId], references: [id], onDelete: Restrict)
   client          Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  proofItems      ProofItem[]
   followUps       FollowUp[]
   disputes        Dispute[]
 
@@ -336,25 +343,33 @@ model PaymentRecord {
 }
 
 model ProofItem {
-  id             String       @id @default(cuid())
-  organizationId String
-  projectId      String
-  clientId       String
-  type           ProofType
-  fileUrl        String?
-  fileName       String?
-  description    String?      @db.Text
-  uploadedById   String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project        Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  client         Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  uploadedBy     User?        @relation("ProofUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  id              String         @id @default(cuid())
+  organizationId  String
+  projectId       String
+  clientId        String
+  paymentRecordId String?
+  title           String         @default("Untitled proof")
+  type            ProofType
+  status          ProofStatus    @default(READY)
+  sourceUrl       String?
+  fileUrl         String?
+  fileName        String?
+  description     String?        @db.Text
+  uploadedById    String?
+  archivedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project         Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  client          Client         @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  paymentRecord   PaymentRecord? @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
+  uploadedBy      User?          @relation("ProofUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([organizationId, type])
+  @@index([organizationId, status])
   @@index([projectId])
   @@index([clientId])
+  @@index([paymentRecordId])
 }
 
 model ClientPromise {

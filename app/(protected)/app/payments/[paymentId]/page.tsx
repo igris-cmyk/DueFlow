@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { cancelPaymentAction } from "@/app/(protected)/app/payments/actions";
 import { LedgerBadge } from "@/components/app/ledger-badge";
+import { ProofSection } from "@/components/app/proof-section";
 import { DestructiveSubmitButton } from "@/components/forms/destructive-submit-button";
 import { requireOrganization } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate, statusLabel } from "@/lib/ledger";
+import { activeProofWhere } from "@/lib/proof";
 
 type PaymentDetailPageProps = {
   params: Promise<{ paymentId: string }>;
@@ -46,6 +48,19 @@ export default async function PaymentDetailPage({
       createdAt: true,
       client: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },
+      proofItems: {
+        where: activeProofWhere(),
+        orderBy: { createdAt: "desc" },
+        take: 6,
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          status: true,
+          description: true,
+          createdAt: true,
+        },
+      },
     },
   });
 
@@ -115,6 +130,21 @@ export default async function PaymentDetailPage({
           </p>
         </div>
       </section>
+
+      <div className="mt-5">
+        <ProofSection
+          title="Payment proof"
+          emptyTitle="Proof missing"
+          emptyMessage="Link receipts, screenshots, bank references, or approval evidence to this payment."
+          addHref={`/app/proof-vault/new?projectId=${payment.project.id}&paymentRecordId=${payment.id}`}
+          addLabel={
+            payment.proofItems.length === 0
+              ? "Attach payment proof"
+              : "Add proof"
+          }
+          proofs={payment.proofItems}
+        />
+      </div>
     </div>
   );
 }
