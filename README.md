@@ -8,7 +8,7 @@ Every pending payment should have a client, a project, proof, a reason, and a ne
 
 ## Current Status
 
-This repository contains **Phase 4A: Proof Vault Foundation**:
+This repository contains **Phase 4B: Real Proof Upload Storage**:
 
 * Premium public marketing routes from Phase 1 and Phase 1.5
 * Email and password signup, login, and logout
@@ -30,8 +30,12 @@ This repository contains **Phase 4A: Proof Vault Foundation**:
 * Proof records linked to organization, client, project, and optionally payment
 * Proof completeness indicators on project and payment detail pages
 * Activity logs for proof create, update, and archive actions
+* Private Vercel Blob upload storage for one proof file per proof item
+* Tenant-safe proof file open/download route through the application
+* Proof file upload, replace, and remove actions with activity logs
+* File attached/missing indicators in Proof Vault, project proof, and payment proof surfaces
 
-Phase 4A does not include billing, AI, OCR, PDF Proof Packs, WhatsApp API integration, invitation emails, live reports, real file upload storage, promise tracking, or follow-up automation.
+Phase 4B does not include billing, AI, OCR, PDF Proof Packs, WhatsApp API integration, invitation emails, live reports, multi-file proof packs, promise tracking, or follow-up automation.
 
 ## Tech Stack
 
@@ -43,6 +47,7 @@ Phase 4A does not include billing, AI, OCR, PDF Proof Packs, WhatsApp API integr
 * Zod validation
 * PostgreSQL
 * Prisma 7 with `@prisma/adapter-pg`
+* Vercel Blob private storage for proof files
 
 ## Auth Architecture
 
@@ -57,7 +62,8 @@ The current workspace is the user's first active membership. A workspace switche
 ## Environment Variables
 
 Create local `.env.local` and `.env` files from `.env.example`, then provide
-real values for `DATABASE_URL`, `AUTH_SECRET`, and `NEXTAUTH_URL`.
+real values for `DATABASE_URL`, `AUTH_SECRET`, `NEXTAUTH_URL`, and
+`BLOB_READ_WRITE_TOKEN`.
 
 Next.js loads `.env.local` for the application. Prisma 7 loads `.env` through
 `prisma.config.ts`, so local migration commands need `DATABASE_URL` in `.env`
@@ -67,6 +73,11 @@ never be committed.
 `DATABASE_URL` must point to a valid PostgreSQL database for runtime auth,
 onboarding, and protected app flows. Generate `AUTH_SECRET` with a
 cryptographically secure random value.
+
+`BLOB_READ_WRITE_TOKEN` must point to a Vercel Blob store that supports private
+objects before proof file upload/open/remove actions can be used. If it is
+missing, proof metadata still works and upload attempts show a clean storage
+configuration error.
 
 Prisma client generation does not require a live database connection. The
 Prisma config reads `process.env.DATABASE_URL` so dependency installation and
@@ -154,6 +165,7 @@ Protected product:
 /app/proof-vault
 /app/proof-vault/new
 /app/proof-vault/[proofId]
+/app/proof-vault/[proofId]/file
 /app/proof-vault/[proofId]/edit
 /app/reports
 /app/settings
@@ -182,8 +194,9 @@ toward paid totals.
 
 ## Proof Vault
 
-Phase 4A treats a proof item as evidence metadata plus optional external
-reference fields. DueFlow does not upload or store binary files yet.
+Phase 4B treats a proof item as evidence metadata plus one optional private
+uploaded file. Existing `sourceUrl`, `fileName`, and `fileUrl` fields remain
+external reference metadata and are separate from storage-backed proof files.
 
 Proof records must belong to the current organization and a project. The
 client is derived from the selected project server-side, and payment linking is
@@ -199,8 +212,9 @@ The Proof Vault supports:
 /app/proof-vault/[proofId]/edit
 ```
 
-Project detail pages show project proof completeness. Payment detail pages show
-payment proof completeness. In Phase 4A, completeness means at least one active
+Project detail pages show project proof completeness and whether each proof
+item has an uploaded file. Payment detail pages show payment proof completeness
+and payment proof file status. Completeness still means at least one active
 proof item is attached to that project or payment. Archived proof is retained
 but does not count as active proof.
 
@@ -208,22 +222,54 @@ Reference URLs and file URLs are displayed as external links only when present
 and safe to open. They do not imply that DueFlow uploaded, hosted, verified, or
 analyzed the file.
 
+Storage-backed proof files use Vercel Blob private storage. The app stores
+stable metadata on `ProofItem`, including storage provider, storage key,
+private storage URL, uploaded file name, MIME type, size, upload timestamp, and
+file-level actor IDs. The private storage URL/token is never exposed as a user
+download link.
+
+Supported proof file uploads:
+
+```txt
+application/pdf  .pdf
+image/png        .png
+image/jpeg       .jpg, .jpeg
+image/webp       .webp
+```
+
+The current server-upload limit is 4 MB per proof file. Vercel's server upload
+path is constrained by function request body limits, so larger proof packs are
+deferred until a client-delegated direct-upload flow is added.
+
+Proof files are opened through:
+
+```txt
+/app/proof-vault/[proofId]/file
+```
+
+That route requires an active signed-in user, resolves the current workspace,
+verifies the proof belongs to the workspace, rejects archived/missing files,
+fetches the private blob server-side, and streams it with private/no-store
+headers.
+
 ## Migration Notes
 
 Phase 3 adds `PaymentStatus.CANCELLED`, `PaymentRecord.cancelledAt`,
 `PaymentRecord.cancelledById`, and an index for organization-scoped paid-date
 queries. Phase 4A adds `ProofStatus`, proof title/source/status/archive
-metadata, and optional proof-to-payment linking. The migrations are:
+metadata, and optional proof-to-payment linking. Phase 4B adds private proof
+file storage metadata. The migrations are:
 
 ```txt
 prisma/migrations/20260605000000_phase_3_core_ledger/migration.sql
 prisma/migrations/20260608000000_phase_4a_proof_vault_foundation/migration.sql
+prisma/migrations/20260609000000_phase_4b_real_proof_upload_storage/migration.sql
 ```
 
 Apply migrations to the intended PostgreSQL database before redeploying:
 
 ```bash
-npm run db:migrate -- --name phase_4a_proof_vault_foundation
+npx prisma migrate deploy
 ```
 
 ## Data and Tenant Safety
@@ -234,21 +280,33 @@ Organization onboarding creates the organization, OWNER membership, and `organiz
 
 Client, project, payment, and proof mutations write concise activity log
 entries for product actions without storing secrets or unnecessary PII. Proof
-activity metadata stores titles, types, project IDs/names, and linked payment
-IDs; external URLs remain on the proof record itself.
+activity metadata stores titles, types, project IDs/names, linked payment IDs,
+and safe uploaded file metadata. Storage tokens, private storage credentials,
+and raw file contents are never logged.
 
 ## Vercel Deployment
 
-Before redeploying Phase 4A, configure these Vercel environment variables for the relevant environments:
+Before redeploying Phase 4B, configure these Vercel environment variables for
+the relevant environments:
 
 * `DATABASE_URL`
 * `AUTH_SECRET`
 * `NEXTAUTH_URL`
+* `BLOB_READ_WRITE_TOKEN`
 
 Add the variables in the Vercel project settings before using auth or database
 flows. Use the deployed application URL for `NEXTAUTH_URL`. Ensure the
 PostgreSQL database is reachable from Vercel and apply migrations against the
 intended database before opening auth flows to users.
+
+Before production proof uploads:
+
+1. Create or connect a Vercel Blob store with private object support.
+2. Add `BLOB_READ_WRITE_TOKEN` to Vercel project environment variables.
+3. Apply database migrations with `npx prisma migrate deploy`.
+4. Redeploy the app.
+5. Test upload/open/replace/remove first with a dummy PDF or image, not real
+   sensitive client evidence.
 
 ## Current Limitations
 
@@ -257,7 +315,10 @@ intended database before opening auth flows to users.
 * No OAuth providers
 * No team invitation workflow
 * Organization settings are read-only
-* No live uploads, billing, AI, OCR, analytics, reports engine, PDF Proof Packs, or storage-backed proof previews
+* One uploaded file per proof item
+* Proof file uploads are limited to 4 MB with the current server-upload flow
+* No audio proof uploads
+* No billing, AI, OCR, analytics, reports engine, PDF Proof Packs, multi-file proof packs, or generated proof exports
 * No archive workflow for clients or projects yet
 * No promise tracker or follow-up engine
 * No fake operational data is seeded

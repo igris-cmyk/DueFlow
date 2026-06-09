@@ -71,6 +71,7 @@ export default async function ProofVaultPage({
           type: true,
           status: true,
           description: true,
+          storageKey: true,
           createdAt: true,
           uploadedBy: { select: { name: true } },
           project: { select: { id: true, name: true } },
@@ -216,6 +217,9 @@ export default async function ProofVaultPage({
                     <LedgerBadge>{proofTypeLabel(proof.type)}</LedgerBadge>
                     <LedgerBadge tone={proofStatusTone(proof.status)}>
                       {proofStatusLabel(proof.status)}
+                    </LedgerBadge>
+                    <LedgerBadge tone={proof.storageKey ? "green" : "amber"}>
+                      {proof.storageKey ? "File attached" : "File missing"}
                     </LedgerBadge>
                   </div>
                   <p className="mt-2 truncate text-[0.88rem] text-[var(--app-text-muted)]">

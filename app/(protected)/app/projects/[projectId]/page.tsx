@@ -91,6 +91,7 @@ export default async function ProjectDetailPage({
           type: true,
           status: true,
           description: true,
+          storageKey: true,
           createdAt: true,
         },
       },

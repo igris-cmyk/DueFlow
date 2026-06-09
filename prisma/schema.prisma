@@ -145,6 +145,8 @@ model User {
   memberships        Membership[]
   activityLogs       ActivityLog[]   @relation("ActivityActor")
   uploadedProofItems ProofItem[]     @relation("ProofUploadedBy")
+  uploadedProofFiles ProofItem[]     @relation("ProofFileUploadedBy")
+  removedProofFiles  ProofItem[]     @relation("ProofFileRemovedBy")
   createdPromises    ClientPromise[] @relation("PromiseCreatedBy")
   assignedFollowUps  FollowUp[]      @relation("FollowUpAssignedTo")
 }
@@ -343,33 +345,48 @@ model PaymentRecord {
 }
 
 model ProofItem {
-  id              String         @id @default(cuid())
-  organizationId  String
-  projectId       String
-  clientId        String
-  paymentRecordId String?
-  title           String         @default("Untitled proof")
-  type            ProofType
-  status          ProofStatus    @default(READY)
-  sourceUrl       String?
-  fileUrl         String?
-  fileName        String?
-  description     String?        @db.Text
-  uploadedById    String?
-  archivedAt      DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project         Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  client          Client         @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  paymentRecord   PaymentRecord? @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
-  uploadedBy      User?          @relation("ProofUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  id                   String         @id @default(cuid())
+  organizationId       String
+  projectId            String
+  clientId             String
+  paymentRecordId      String?
+  title                String         @default("Untitled proof")
+  type                 ProofType
+  status               ProofStatus    @default(READY)
+  sourceUrl            String?
+  fileUrl              String?
+  fileName             String?
+  storageProvider      String?
+  storageKey           String?
+  storageUrl           String?
+  uploadedFileName     String?
+  uploadedFileSize     Int?
+  uploadedFileMimeType String?
+  fileUploadedAt       DateTime?
+  fileUploadedById     String?
+  fileRemovedAt        DateTime?
+  fileRemovedById      String?
+  description          String?        @db.Text
+  uploadedById         String?
+  archivedAt           DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  organization         Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project              Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  client               Client         @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  paymentRecord        PaymentRecord? @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
+  uploadedBy           User?          @relation("ProofUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  fileUploadedBy       User?          @relation("ProofFileUploadedBy", fields: [fileUploadedById], references: [id], onDelete: SetNull)
+  fileRemovedBy        User?          @relation("ProofFileRemovedBy", fields: [fileRemovedById], references: [id], onDelete: SetNull)
 
   @@index([organizationId, type])
   @@index([organizationId, status])
+  @@index([organizationId, storageProvider])
   @@index([projectId])
   @@index([clientId])
   @@index([paymentRecordId])
+  @@index([fileUploadedById])
+  @@index([fileRemovedById])
 }
 
 model ClientPromise {

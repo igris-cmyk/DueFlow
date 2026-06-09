@@ -58,6 +58,7 @@ export default async function PaymentDetailPage({
           type: true,
           status: true,
           description: true,
+          storageKey: true,
           createdAt: true,
         },
       },
@@ -142,6 +143,7 @@ export default async function PaymentDetailPage({
               ? "Attach payment proof"
               : "Add proof"
           }
+          fileAttachedLabel="Payment proof file attached"
           proofs={payment.proofItems}
         />
       </div>

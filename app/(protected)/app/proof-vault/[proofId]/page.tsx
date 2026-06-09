@@ -3,12 +3,22 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Archive, ArrowLeft, ExternalLink, Pencil } from "lucide-react";
-import { archiveProofAction } from "@/app/(protected)/app/proof-vault/actions";
+import {
+  archiveProofAction,
+  removeProofFileAction,
+  uploadProofFileAction,
+} from "@/app/(protected)/app/proof-vault/actions";
+import { ProofFilePanel } from "@/components/app/proof-file-panel";
 import { LedgerBadge } from "@/components/app/ledger-badge";
 import { DestructiveSubmitButton } from "@/components/forms/destructive-submit-button";
 import { requireOrganization } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/ledger";
+import {
+  formatFileSize,
+  PROOF_FILE_MAX_LABEL,
+  proofFileTypeLabel,
+} from "@/lib/proof-file";
 import {
   proofStatusLabel,
   proofStatusTone,
@@ -49,10 +59,16 @@ export default async function ProofDetailPage({
       sourceUrl: true,
       fileName: true,
       fileUrl: true,
+      storageKey: true,
+      uploadedFileName: true,
+      uploadedFileSize: true,
+      uploadedFileMimeType: true,
+      fileUploadedAt: true,
       archivedAt: true,
       createdAt: true,
       updatedAt: true,
       uploadedBy: { select: { name: true } },
+      fileUploadedBy: { select: { name: true } },
       client: { select: { id: true, name: true, phone: true, email: true } },
       project: { select: { id: true, name: true } },
       paymentRecord: {
@@ -74,6 +90,9 @@ export default async function ProofDetailPage({
 
   const sourceHref = safeExternalHref(proof.sourceUrl);
   const fileHref = safeExternalHref(proof.fileUrl);
+  const uploadFileAction = uploadProofFileAction.bind(null, proof.id);
+  const removeFileAction = removeProofFileAction.bind(null, proof.id);
+  const proofFileHref = `/app/proof-vault/${proof.id}/file`;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -119,6 +138,28 @@ export default async function ProofDetailPage({
             </form>
           ) : null}
         </div>
+      </div>
+
+      <div className="mt-8">
+        <ProofFilePanel
+          proofId={proof.id}
+          archived={proof.status === "ARCHIVED"}
+          maxFileSizeLabel={PROOF_FILE_MAX_LABEL}
+          uploadAction={uploadFileAction}
+          removeAction={removeFileAction}
+          file={
+            proof.storageKey && proof.uploadedFileName
+              ? {
+                  name: proof.uploadedFileName,
+                  typeLabel: proofFileTypeLabel(proof.uploadedFileMimeType),
+                  sizeLabel: formatFileSize(proof.uploadedFileSize),
+                  uploadedAt: formatDate(proof.fileUploadedAt),
+                  uploadedBy: proof.fileUploadedBy?.name ?? "Not recorded",
+                  href: proofFileHref,
+                }
+              : null
+          }
+        />
       </div>
 
       <section className="mt-8 grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
@@ -171,7 +212,7 @@ export default async function ProofDetailPage({
               value={formatDate(proof.archivedAt)}
             />
             <Detail
-              label="Reference file"
+              label="Reference file name"
               value={proof.fileName ?? "Not added"}
             />
             <Detail

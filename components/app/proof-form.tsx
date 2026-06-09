@@ -154,7 +154,7 @@ export function ProofForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField
           id="fileName"
-          label="Reference file name"
+          label="External reference file name"
           type="text"
           placeholder="invoice-approved.png"
           defaultValue={proof?.fileName ?? ""}
@@ -162,7 +162,7 @@ export function ProofForm({
         />
         <TextField
           id="fileUrl"
-          label="Reference file URL"
+          label="External reference file URL"
           type="url"
           placeholder="https://..."
           defaultValue={proof?.fileUrl ?? ""}

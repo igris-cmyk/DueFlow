@@ -13,12 +13,15 @@ type ProofSectionProps = {
   emptyMessage: string;
   addHref: string;
   addLabel: string;
+  fileAttachedLabel?: string;
+  fileMissingLabel?: string;
   proofs: Array<{
     id: string;
     title: string;
     type: string;
     status: string;
     description: string | null;
+    storageKey: string | null;
     createdAt: Date;
   }>;
 };
@@ -29,6 +32,8 @@ export function ProofSection({
   emptyMessage,
   addHref,
   addLabel,
+  fileAttachedLabel = "Evidence linked",
+  fileMissingLabel = "File missing",
   proofs,
 }: ProofSectionProps) {
   const hasProof = proofs.length > 0;
@@ -73,6 +78,9 @@ export function ProofSection({
                 <LedgerBadge>{proofTypeLabel(proof.type)}</LedgerBadge>
                 <LedgerBadge tone={proofStatusTone(proof.status)}>
                   {proofStatusLabel(proof.status)}
+                </LedgerBadge>
+                <LedgerBadge tone={proof.storageKey ? "green" : "amber"}>
+                  {proof.storageKey ? fileAttachedLabel : fileMissingLabel}
                 </LedgerBadge>
               </div>
               <p className="mt-2 break-words text-sm font-semibold leading-6 text-[var(--app-text-muted)]">
