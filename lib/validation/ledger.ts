@@ -124,3 +124,44 @@ export const proofSchema = z.object({
   fileUrl: optionalUrl,
   redirectTo: z.enum(["proof", "project", "payment"]).default("proof"),
 });
+
+export const promiseSchema = z.object({
+  projectId: requiredTrimmed("Project", 120),
+  promisedAmount: moneyInputSchema,
+  promisedDate: z.string().date("Use a valid promised date."),
+  channel: z.enum(["WHATSAPP", "PHONE", "IN_PERSON", "EMAIL", "SMS", "OTHER"], {
+    error: "Choose a valid channel.",
+  }),
+  paymentRecordId: optionalTrimmed(120),
+  proofId: optionalTrimmed(120),
+  promiseText: optionalTrimmed(1200),
+  redirectTo: z.enum(["promise", "project"]).default("promise"),
+});
+
+export const promiseEditSchema = promiseSchema.extend({
+  status: z
+    .enum(["OPEN", "KEPT", "MISSED", "PARTIAL", "CANCELLED"])
+    .default("OPEN"),
+});
+
+export const followUpSchema = z.object({
+  projectId: requiredTrimmed("Project", 120),
+  promiseId: optionalTrimmed(120),
+  paymentRecordId: optionalTrimmed(120),
+  proofId: optionalTrimmed(120),
+  title: requiredTrimmed("Follow-up title", 140),
+  dueDate: z.string().date("Follow-up date is required."),
+  channel: z.enum(["WHATSAPP", "PHONE", "IN_PERSON", "EMAIL", "SMS", "OTHER"], {
+    error: "Choose a valid channel.",
+  }),
+  priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).default("NORMAL"),
+  message: optionalTrimmed(1200),
+  notes: optionalTrimmed(1200),
+  redirectTo: z.enum(["follow-up", "project", "promise"]).default("follow-up"),
+});
+
+export const followUpEditSchema = followUpSchema.extend({
+  status: z
+    .enum(["OPEN", "DONE", "SNOOZED", "CANCELLED", "COMPLETED", "SKIPPED"])
+    .default("OPEN"),
+});

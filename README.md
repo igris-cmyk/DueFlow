@@ -8,7 +8,7 @@ Every pending payment should have a client, a project, proof, a reason, and a ne
 
 ## Current Status
 
-This repository contains **Phase 4B: Real Proof Upload Storage**:
+This repository contains **Phase 5A: Promise & Follow-Up Engine**:
 
 * Premium public marketing routes from Phase 1 and Phase 1.5
 * Email and password signup, login, and logout
@@ -34,8 +34,14 @@ This repository contains **Phase 4B: Real Proof Upload Storage**:
 * Tenant-safe proof file open/download route through the application
 * Proof file upload, replace, and remove actions with activity logs
 * File attached/missing indicators in Proof Vault, project proof, and payment proof surfaces
+* Tenant-safe client promise create, list, detail, edit, and status workflows
+* Tenant-safe follow-up create, list, detail, edit, copy, done, snooze, and cancel workflows
+* Missed promise detection without background jobs
+* Today’s Cash Desk action queue for missed promises and due/overdue follow-ups
+* Project, client, and payment integrations for promise/follow-up context
+* Deterministic manual follow-up message templates with copy-only UX
 
-Phase 4B does not include billing, AI, OCR, PDF Proof Packs, WhatsApp API integration, invitation emails, live reports, multi-file proof packs, promise tracking, or follow-up automation.
+Phase 5A does not include billing, AI, OCR, PDF Proof Packs, WhatsApp API integration, invitation emails, live reports, multi-file proof packs, automated reminders, automatic sending, or debt-collection workflows.
 
 ## Tech Stack
 
@@ -161,7 +167,14 @@ Protected product:
 /app/payments/new
 /app/payments/[paymentId]
 /app/payments/[paymentId]/edit
+/app/promises
+/app/promises/new
+/app/promises/[promiseId]
+/app/promises/[promiseId]/edit
 /app/follow-ups
+/app/follow-ups/new
+/app/follow-ups/[followUpId]
+/app/follow-ups/[followUpId]/edit
 /app/proof-vault
 /app/proof-vault/new
 /app/proof-vault/[proofId]
@@ -252,18 +265,48 @@ verifies the proof belongs to the workspace, rejects archived/missing files,
 fetches the private blob server-side, and streams it with private/no-store
 headers.
 
+## Promise and Follow-Up Engine
+
+Phase 5A adds a manual operational action layer over the ledger. Promises are
+client commitments; they do not create payment records and never update
+`Project.paidAmount` or `Project.pendingAmount`. Only received payments in the
+payment ledger update balances.
+
+A promise can be linked to a client, project, optional payment, and optional
+proof record. A promise is shown as missed when:
+
+```txt
+status = OPEN
+promisedDate is before today
+project pendingAmount > 0
+```
+
+The app does not mutate promise status automatically on page load. Users can
+explicitly mark promises kept, missed, partial, or cancelled.
+
+Follow-ups are manual next actions. They may link to a project, promise,
+payment, and proof record. Follow-up messages are deterministic templates that
+the user can review and copy manually. DueFlow does not send WhatsApp, SMS, or
+email messages and does not integrate with WhatsApp Business API or AI services.
+
+Today’s Cash Desk now includes a bounded action queue for missed promises,
+follow-ups due today, and overdue follow-ups.
+
 ## Migration Notes
 
 Phase 3 adds `PaymentStatus.CANCELLED`, `PaymentRecord.cancelledAt`,
 `PaymentRecord.cancelledById`, and an index for organization-scoped paid-date
 queries. Phase 4A adds `ProofStatus`, proof title/source/status/archive
 metadata, and optional proof-to-payment linking. Phase 4B adds private proof
-file storage metadata. The migrations are:
+file storage metadata. Phase 5A adds promise/follow-up links, status fields,
+message fields, and action-queue indexes. The migrations are:
 
 ```txt
 prisma/migrations/20260605000000_phase_3_core_ledger/migration.sql
 prisma/migrations/20260608000000_phase_4a_proof_vault_foundation/migration.sql
 prisma/migrations/20260609000000_phase_4b_real_proof_upload_storage/migration.sql
+prisma/migrations/20260610000000_phase_5a_promise_followup_engine/migration.sql
+prisma/migrations/20260610055047_phase_5a_promise_followup_engine/migration.sql
 ```
 
 Apply migrations to the intended PostgreSQL database before redeploying:
@@ -308,6 +351,14 @@ Before production proof uploads:
 5. Test upload/open/replace/remove first with a dummy PDF or image, not real
    sensitive client evidence.
 
+For Phase 5A production rollout, apply migrations and then test with non-real
+client data first:
+
+1. Create a promise on a pending project.
+2. Create a follow-up from that promise.
+3. Verify Today’s Cash Desk shows missed/due actions.
+4. Verify the follow-up message can be copied manually and is not sent.
+
 ## Current Limitations
 
 * No organization switcher
@@ -318,14 +369,17 @@ Before production proof uploads:
 * One uploaded file per proof item
 * Proof file uploads are limited to 4 MB with the current server-upload flow
 * No audio proof uploads
+* Follow-up messages are deterministic templates, not AI-generated
+* No automatic WhatsApp, SMS, or email sending
 * No billing, AI, OCR, analytics, reports engine, PDF Proof Packs, multi-file proof packs, or generated proof exports
 * No archive workflow for clients or projects yet
-* No promise tracker or follow-up engine
 * No fake operational data is seeded
 
 ## Recommended Next Phase
 
-**Phase 4B: Real Proof Upload Storage** should choose and integrate a storage provider, add secure upload flows, enforce file size/type limits, and connect uploaded file metadata to the existing `ProofItem` records without changing the ledger links built in Phase 4A.
+**Phase 5B: Follow-Up Workflow Refinement** should improve filtering, saved
+templates, snooze controls, and promise/payment reconciliation helpers before
+moving into larger reports or proof-pack exports.
 
 ## License
 

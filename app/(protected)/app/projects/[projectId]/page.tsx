@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import {
   AlertTriangle,
   ArrowRight,
-  HandCoins,
   ListTodo,
   Pencil,
   Plus,
@@ -21,6 +20,13 @@ import {
   isProjectOverdue,
   statusLabel,
 } from "@/lib/ledger";
+import {
+  channelLabel,
+  followUpStatusLabel,
+  isPromiseComputedMissed,
+  promiseStatusLabel,
+  statusTone,
+} from "@/lib/follow-up-message";
 import { activeProofWhere } from "@/lib/proof";
 
 type ProjectDetailPageProps = {
@@ -95,6 +101,32 @@ export default async function ProjectDetailPage({
           createdAt: true,
         },
       },
+      clientPromises: {
+        where: { status: { in: ["OPEN", "MISSED", "PARTIAL"] } },
+        orderBy: { promisedDate: "asc" },
+        take: 5,
+        select: {
+          id: true,
+          promisedAmount: true,
+          promisedDate: true,
+          channel: true,
+          status: true,
+          promiseText: true,
+        },
+      },
+      followUps: {
+        where: { status: { in: ["OPEN", "SNOOZED"] } },
+        orderBy: { dueDate: "asc" },
+        take: 5,
+        select: {
+          id: true,
+          title: true,
+          dueDate: true,
+          channel: true,
+          status: true,
+          priority: true,
+        },
+      },
     },
   });
 
@@ -132,6 +164,20 @@ export default async function ProjectDetailPage({
           >
             <Plus aria-hidden="true" className="size-4" />
             Record payment
+          </Link>
+          <Link
+            href={`/app/promises/new?projectId=${project.id}`}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-4 text-sm font-extrabold text-[var(--app-text-soft)] shadow-sm transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
+          >
+            <Plus aria-hidden="true" className="size-4" />
+            Add promise
+          </Link>
+          <Link
+            href={`/app/follow-ups/new?projectId=${project.id}`}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-4 text-sm font-extrabold text-[var(--app-text-soft)] shadow-sm transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
+          >
+            <ListTodo aria-hidden="true" className="size-4" />
+            Create follow-up
           </Link>
         </div>
       </div>
@@ -243,9 +289,116 @@ export default async function ProjectDetailPage({
         />
       </div>
 
-      <section className="mt-5 grid gap-4 md:grid-cols-2">
-        <Future icon={ListTodo} title="Follow-ups" copy="Follow-up queues will use real project balances later." />
-        <Future icon={AlertTriangle} title="Promises" copy="Promise tracking is deferred until payments are grounded." />
+      <section className="mt-5 rounded-[1.35rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-5 shadow-[var(--app-shadow-soft)]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-black tracking-[-0.035em] text-[var(--app-text)]">
+              Promises & Follow-Ups
+            </h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[var(--app-text-muted)]">
+              Keep this pending balance connected to a promise history and a
+              manual next action.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/app/promises/new?projectId=${project.id}`}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 text-sm font-extrabold text-[var(--app-text-soft)] transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
+            >
+              Add promise
+            </Link>
+            <Link
+              href={`/app/follow-ups/new?projectId=${project.id}`}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[var(--app-sidebar)] px-4 text-sm font-extrabold text-white transition hover:bg-[#2a352d]"
+            >
+              Create follow-up
+            </Link>
+          </div>
+        </div>
+
+        {project.clientPromises.length === 0 && project.followUps.length === 0 ? (
+          <div className="mt-4 rounded-2xl border border-dashed border-[#dacdb9] bg-[var(--app-surface-muted)] p-5">
+            <AlertTriangle
+              aria-hidden="true"
+              className="size-5 text-[var(--app-accent)]"
+            />
+            <p className="mt-3 font-black text-[var(--app-text)]">
+              No next action set.
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[var(--app-text-muted)]">
+              Add a promise or follow-up so this pending balance does not
+              disappear from your day.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="space-y-3">
+              <p className="text-[0.72rem] font-extrabold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">
+                Active promises
+              </p>
+              {project.clientPromises.length === 0 ? (
+                <EmptyMini copy="No active promises recorded." />
+              ) : (
+                project.clientPromises.map((promise) => {
+                  const missed = isPromiseComputedMissed({
+                    status: promise.status,
+                    promisedDate: promise.promisedDate,
+                    projectPendingAmount: project.pendingAmount,
+                  });
+
+                  return (
+                    <Link
+                      key={promise.id}
+                      href={`/app/promises/${promise.id}`}
+                      className="block rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 transition hover:border-[var(--app-border-strong)]"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-black text-[var(--app-text)]">
+                          {formatCurrency(promise.promisedAmount ?? 0, organization.currency)}
+                        </p>
+                        <LedgerBadge tone={statusTone(promise.status, missed)}>
+                          {missed ? "Promise missed" : promiseStatusLabel(promise.status)}
+                        </LedgerBadge>
+                      </div>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-[var(--app-text-muted)]">
+                        Due {formatDate(promise.promisedDate)} · {channelLabel(promise.channel)}
+                      </p>
+                    </Link>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-[0.72rem] font-extrabold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">
+                Next follow-ups
+              </p>
+              {project.followUps.length === 0 ? (
+                <EmptyMini copy="No open follow-ups yet." />
+              ) : (
+                project.followUps.map((followUp) => (
+                  <Link
+                    key={followUp.id}
+                    href={`/app/follow-ups/${followUp.id}`}
+                    className="block rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 transition hover:border-[var(--app-border-strong)]"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-black text-[var(--app-text)]">
+                        {followUp.title}
+                      </p>
+                      <LedgerBadge tone={statusTone(followUp.status)}>
+                        {followUpStatusLabel(followUp.status)}
+                      </LedgerBadge>
+                    </div>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[var(--app-text-muted)]">
+                      Due {formatDate(followUp.dueDate)} · {channelLabel(followUp.channel)}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );
@@ -291,24 +444,10 @@ function Detail({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Future({
-  icon: Icon,
-  title,
-  copy,
-}: {
-  icon: typeof HandCoins;
-  title: string;
-  copy: string;
-}) {
+function EmptyMini({ copy }: { copy: string }) {
   return (
-    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 shadow-[var(--app-shadow-soft)]">
-      <Icon aria-hidden="true" className="size-5 text-[var(--app-accent)]" />
-      <p className="mt-4 text-[0.95rem] font-extrabold text-[var(--app-text)]">
-        {title}
-      </p>
-      <p className="mt-2 text-[0.88rem] leading-6 text-[var(--app-text-muted)]">
-        {copy}
-      </p>
-    </div>
+    <p className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm font-semibold leading-6 text-[var(--app-text-muted)]">
+      {copy}
+    </p>
   );
 }

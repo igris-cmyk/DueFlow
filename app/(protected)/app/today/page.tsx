@@ -1,11 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BriefcaseBusiness, HandCoins, Plus, UsersRound } from "lucide-react";
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  HandCoins,
+  Plus,
+  UsersRound,
+} from "lucide-react";
 import { Prisma } from "@/app/generated/prisma/client";
 import { LedgerBadge } from "@/components/app/ledger-badge";
 import { TodayEmptyState } from "@/components/app/today-empty-state";
 import { requireOrganization } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
+import {
+  channelLabel,
+  followUpStatusLabel,
+  promiseStatusLabel,
+} from "@/lib/follow-up-message";
 import {
   formatCurrency,
   formatDate,
@@ -22,6 +33,8 @@ export default async function TodayPage() {
   const { organization } = await requireOrganization();
   const db = getDb();
   const today = todayUtcStart();
+  const tomorrow = new Date(today);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
   const week = getCurrentWeekRange();
   const month = getCurrentMonthRange();
   const activeProjectWhere = {
@@ -52,6 +65,12 @@ export default async function TodayPage() {
     dueThisWeekProjects,
     pendingProjects,
     recentPayments,
+    missedPromisesCount,
+    dueFollowUpsCount,
+    overdueFollowUpsCount,
+    missedPromises,
+    dueFollowUps,
+    overdueFollowUps,
   ] = await Promise.all([
     db.client.count({ where: { organizationId: organization.id } }),
     db.project.count({ where: activeProjectWhere }),
@@ -135,6 +154,83 @@ export default async function TodayPage() {
         project: { select: { name: true } },
       },
     }),
+    db.clientPromise.count({
+      where: {
+        organizationId: organization.id,
+        status: "OPEN",
+        promisedDate: { lt: today },
+        project: { pendingAmount: { gt: 0 } },
+      },
+    }),
+    db.followUp.count({
+      where: {
+        organizationId: organization.id,
+        status: { in: ["OPEN", "SNOOZED"] },
+        dueDate: { gte: today, lt: tomorrow },
+      },
+    }),
+    db.followUp.count({
+      where: {
+        organizationId: organization.id,
+        status: { in: ["OPEN", "SNOOZED"] },
+        dueDate: { lt: today },
+      },
+    }),
+    db.clientPromise.findMany({
+      where: {
+        organizationId: organization.id,
+        status: "OPEN",
+        promisedDate: { lt: today },
+        project: { pendingAmount: { gt: 0 } },
+      },
+      orderBy: { promisedDate: "asc" },
+      take: 5,
+      select: {
+        id: true,
+        promisedAmount: true,
+        promisedDate: true,
+        status: true,
+        channel: true,
+        client: { select: { name: true } },
+        project: { select: { name: true, pendingAmount: true } },
+      },
+    }),
+    db.followUp.findMany({
+      where: {
+        organizationId: organization.id,
+        status: { in: ["OPEN", "SNOOZED"] },
+        dueDate: { gte: today, lt: tomorrow },
+      },
+      orderBy: [{ priority: "desc" }, { dueDate: "asc" }],
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        status: true,
+        channel: true,
+        client: { select: { name: true } },
+        project: { select: { name: true, pendingAmount: true } },
+      },
+    }),
+    db.followUp.findMany({
+      where: {
+        organizationId: organization.id,
+        status: { in: ["OPEN", "SNOOZED"] },
+        dueDate: { lt: today },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        status: true,
+        channel: true,
+        client: { select: { name: true } },
+        project: { select: { name: true, pendingAmount: true } },
+      },
+    }),
   ]);
 
   if (clientsCount === 0 && activeProjectsCount === 0) {
@@ -179,6 +275,21 @@ export default async function TodayPage() {
       value: String(activeProjectsCount),
       tone: "slate",
     },
+    {
+      label: "Missed promises",
+      value: String(missedPromisesCount),
+      tone: missedPromisesCount > 0 ? "red" : "green",
+    },
+    {
+      label: "Follow-ups today",
+      value: String(dueFollowUpsCount),
+      tone: dueFollowUpsCount > 0 ? "amber" : "green",
+    },
+    {
+      label: "Overdue follow-ups",
+      value: String(overdueFollowUpsCount),
+      tone: overdueFollowUpsCount > 0 ? "red" : "green",
+    },
   ];
 
   return (
@@ -217,6 +328,76 @@ export default async function TodayPage() {
             </p>
           </div>
         ))}
+      </section>
+
+      <section className="mt-5 grid gap-4 lg:grid-cols-3">
+        <Panel title="Missed promises">
+          {missedPromises.length === 0 ? (
+            <EmptyLine copy="No missed client promises right now." />
+          ) : (
+            missedPromises.map((promise) => (
+              <ActionLine
+                key={promise.id}
+                href={`/app/promises/${promise.id}`}
+                title={promise.client.name}
+                meta={`${promise.project?.name ?? "Project"} · ${formatDate(
+                  promise.promisedDate,
+                )}`}
+                amount={formatCurrency(
+                  promise.promisedAmount ?? promise.project?.pendingAmount ?? 0,
+                  organization.currency,
+                )}
+                badge={promiseStatusLabel(promise.status)}
+                danger
+              />
+            ))
+          )}
+        </Panel>
+
+        <Panel title="Follow up today">
+          {dueFollowUps.length === 0 ? (
+            <EmptyLine copy="No follow-ups due today." />
+          ) : (
+            dueFollowUps.map((followUp) => (
+              <ActionLine
+                key={followUp.id}
+                href={`/app/follow-ups/${followUp.id}`}
+                title={followUp.title}
+                meta={`${followUp.client.name} · ${channelLabel(
+                  followUp.channel,
+                )}`}
+                amount={formatCurrency(
+                  followUp.project?.pendingAmount ?? 0,
+                  organization.currency,
+                )}
+                badge={followUpStatusLabel(followUp.status)}
+              />
+            ))
+          )}
+        </Panel>
+
+        <Panel title="Overdue follow-ups">
+          {overdueFollowUps.length === 0 ? (
+            <EmptyLine copy="No overdue follow-ups." />
+          ) : (
+            overdueFollowUps.map((followUp) => (
+              <ActionLine
+                key={followUp.id}
+                href={`/app/follow-ups/${followUp.id}`}
+                title={followUp.title}
+                meta={`${followUp.client.name} · Due ${formatDate(
+                  followUp.dueDate,
+                )}`}
+                amount={formatCurrency(
+                  followUp.project?.pendingAmount ?? 0,
+                  organization.currency,
+                )}
+                badge={followUpStatusLabel(followUp.status)}
+                danger
+              />
+            ))
+          )}
+        </Panel>
       </section>
 
       <section className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
@@ -373,6 +554,48 @@ function ProjectLine({
           {meta}
         </p>
       </div>
+    </Link>
+  );
+}
+
+function ActionLine({
+  href,
+  title,
+  meta,
+  amount,
+  badge,
+  danger = false,
+}: {
+  href: string;
+  title: string;
+  meta: string;
+  amount: string;
+  badge: string;
+  danger?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="block rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 transition hover:border-[var(--app-border-strong)]"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0 truncate font-black text-[var(--app-text)]">
+          {title}
+        </p>
+        <LedgerBadge tone={danger ? "red" : "amber"}>{badge}</LedgerBadge>
+      </div>
+      <p className="mt-2 text-sm font-semibold leading-6 text-[var(--app-text-muted)]">
+        {meta}
+      </p>
+      <p
+        className={
+          danger
+            ? "mt-2 font-black text-[var(--red)]"
+            : "mt-2 font-black text-[var(--app-text)]"
+        }
+      >
+        {amount}
+      </p>
     </Link>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, ListTodo, Plus } from "lucide-react";
+import { ArrowRight, Handshake, Plus } from "lucide-react";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { LedgerBadge } from "@/components/app/ledger-badge";
 import { LedgerEmptyState } from "@/components/app/ledger-empty-state";
@@ -8,62 +8,58 @@ import { requireOrganization } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
 import {
   channelLabel,
-  followUpStatusLabel,
+  isPromiseComputedMissed,
+  promiseStatusLabel,
   statusTone,
 } from "@/lib/follow-up-message";
 import { formatCurrency, formatDate, todayUtcStart } from "@/lib/ledger";
 
-type FollowUpsPageProps = {
-  searchParams: Promise<{ view?: string }>;
+type PromisesPageProps = {
+  searchParams: Promise<{ status?: string }>;
 };
 
 export const metadata: Metadata = {
-  title: "Follow-Ups",
+  title: "Promises",
 };
 
-export default async function FollowUpsPage({ searchParams }: FollowUpsPageProps) {
-  const { view = "open" } = await searchParams;
+export default async function PromisesPage({ searchParams }: PromisesPageProps) {
+  const { status = "active" } = await searchParams;
   const { organization } = await requireOrganization();
   const today = todayUtcStart();
-  const tomorrow = new Date(today);
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  const where: Prisma.FollowUpWhereInput = {
+  const where: Prisma.ClientPromiseWhereInput = {
     organizationId: organization.id,
-    ...(view === "done"
-      ? { status: { in: ["DONE", "COMPLETED"] } }
-      : view === "overdue"
-        ? { status: { in: ["OPEN", "SNOOZED"] }, dueDate: { lt: today } }
-        : view === "today"
-          ? { status: { in: ["OPEN", "SNOOZED"] }, dueDate: { gte: today, lt: tomorrow } }
-          : { status: { in: ["OPEN", "SNOOZED"] } }),
+    ...(status === "kept"
+      ? { status: "KEPT" as const }
+      : status === "cancelled"
+        ? { status: "CANCELLED" as const }
+        : status === "missed"
+          ? { status: "OPEN" as const, promisedDate: { lt: today } }
+          : { status: { in: ["OPEN", "MISSED", "PARTIAL"] } }),
   };
-  const followUps = await getDb().followUp.findMany({
+  const promises = await getDb().clientPromise.findMany({
     where,
-    orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
+    orderBy: [{ promisedDate: "asc" }, { createdAt: "desc" }],
     take: 75,
     select: {
       id: true,
-      title: true,
-      dueDate: true,
+      promisedAmount: true,
+      promisedDate: true,
       channel: true,
-      priority: true,
       status: true,
-      message: true,
+      promiseText: true,
       client: { select: { name: true } },
       project: {
         select: {
+          id: true,
           name: true,
           pendingAmount: true,
         },
       },
-      promise: {
-        select: {
-          id: true,
-          promisedDate: true,
-          status: true,
-        },
+      followUps: {
+        where: { status: { in: ["OPEN", "SNOOZED"] } },
+        select: { id: true },
+        take: 3,
       },
-      proof: { select: { id: true, storageKey: true } },
     },
   });
 
@@ -72,37 +68,37 @@ export default async function FollowUpsPage({ searchParams }: FollowUpsPageProps
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-3xl">
           <p className="text-[0.75rem] font-extrabold uppercase tracking-[0.14em] text-[var(--app-accent)]">
-            Manual action queue
+            Promise history
           </p>
           <h1 className="text-balance mt-4 text-3xl font-black tracking-[-0.05em] text-[var(--app-text)] sm:text-4xl">
-            Follow-Ups
+            Client Promises
           </h1>
           <p className="mt-4 max-w-2xl text-[0.95rem] leading-7 text-[var(--app-text-muted)]">
-            Keep the next payment action clear. DueFlow helps you copy a
-            respectful message manually; it never sends anything for you.
+            Record what a client said, when they said they would pay, and what
+            next action should happen if that promise slips.
           </p>
         </div>
         <Link
-          href="/app/follow-ups/new"
+          href="/app/promises/new"
           className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-xl bg-[var(--app-sidebar)] px-4 text-sm font-extrabold text-white shadow-[0_10px_24px_rgba(31,40,34,0.17)] transition hover:bg-[#2a352d]"
         >
           <Plus aria-hidden="true" className="size-4" />
-          Create follow-up
+          Add promise
         </Link>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
         {[
-          ["open", "Open"],
-          ["today", "Due today"],
-          ["overdue", "Overdue"],
-          ["done", "Done"],
+          ["active", "Active"],
+          ["missed", "Missed"],
+          ["kept", "Kept"],
+          ["cancelled", "Cancelled"],
         ].map(([value, label]) => (
           <Link
             key={value}
-            href={`/app/follow-ups?view=${value}`}
+            href={`/app/promises?status=${value}`}
             className={
-              view === value
+              status === value
                 ? "rounded-full border border-[#bfd5c5] bg-[var(--app-accent-soft)] px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.08em] text-[var(--app-accent)]"
                 : "rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.08em] text-[var(--app-text-muted)]"
             }
@@ -113,48 +109,52 @@ export default async function FollowUpsPage({ searchParams }: FollowUpsPageProps
       </div>
 
       <section className="mt-6">
-        {followUps.length === 0 ? (
+        {promises.length === 0 ? (
           <LedgerEmptyState
-            icon={ListTodo}
-            title="No follow-ups due"
-            message="When a promise is missed or a payment needs attention, DueFlow will help you keep the next action clear."
-            href="/app/follow-ups/new"
-            cta="Create follow-up"
+            icon={Handshake}
+            title="No client promises yet"
+            message="When a client says “I’ll pay tomorrow” or “I’ll clear it Friday,” record it here so it does not disappear in WhatsApp."
+            href="/app/promises/new"
+            cta="Add promise"
           />
         ) : (
           <div className="grid gap-4">
-            {followUps.map((followUp) => {
-              const overdue = followUp.dueDate < today && ["OPEN", "SNOOZED"].includes(followUp.status);
+            {promises.map((promise) => {
+              const missed = isPromiseComputedMissed({
+                status: promise.status,
+                promisedDate: promise.promisedDate,
+                projectPendingAmount: promise.project?.pendingAmount,
+              });
 
               return (
                 <Link
-                  key={followUp.id}
-                  href={`/app/follow-ups/${followUp.id}`}
-                  className="grid gap-4 rounded-[1.35rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-5 shadow-[var(--app-shadow-soft)] transition hover:border-[var(--app-border-strong)] hover:shadow-[var(--app-shadow)] lg:grid-cols-[1.2fr_0.8fr_0.7fr_0.85fr_auto] lg:items-center"
+                  key={promise.id}
+                  href={`/app/promises/${promise.id}`}
+                  className="grid gap-4 rounded-[1.35rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-5 shadow-[var(--app-shadow-soft)] transition hover:border-[var(--app-border-strong)] hover:shadow-[var(--app-shadow)] lg:grid-cols-[1.2fr_0.75fr_0.7fr_0.7fr_auto] lg:items-center"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="truncate text-lg font-black tracking-[-0.035em] text-[var(--app-text)]">
-                        {followUp.title}
+                        {promise.client.name}
                       </h2>
-                      <LedgerBadge tone={statusTone(followUp.status, overdue)}>
-                        {overdue ? "Overdue" : followUpStatusLabel(followUp.status)}
+                      <LedgerBadge tone={statusTone(promise.status, missed)}>
+                        {missed ? "Promise missed" : promiseStatusLabel(promise.status)}
                       </LedgerBadge>
                     </div>
                     <p className="mt-2 line-clamp-2 text-[0.88rem] text-[var(--app-text-muted)]">
-                      {followUp.message ?? "Manual follow-up action."}
+                      {promise.promiseText}
                     </p>
                   </div>
-                  <Metric label="Client" value={followUp.client.name} />
-                  <Metric label="Due" value={formatDate(followUp.dueDate)} />
+                  <Metric label="Project" value={promise.project?.name ?? "No project"} />
                   <Metric
-                    label="Pending"
-                    value={formatCurrency(followUp.project?.pendingAmount ?? 0, organization.currency)}
+                    label="Promised"
+                    value={formatCurrency(promise.promisedAmount ?? 0, organization.currency)}
                   />
+                  <Metric label="Date" value={formatDate(promise.promisedDate)} />
                   <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                    <LedgerBadge>{channelLabel(followUp.channel)}</LedgerBadge>
-                    <LedgerBadge tone={followUp.proof?.storageKey ? "green" : "amber"}>
-                      {followUp.proof?.storageKey ? "Proof attached" : "Proof optional"}
+                    <LedgerBadge>{channelLabel(promise.channel)}</LedgerBadge>
+                    <LedgerBadge tone={promise.followUps.length ? "green" : "amber"}>
+                      {promise.followUps.length ? "Next action set" : "No action"}
                     </LedgerBadge>
                     <ArrowRight aria-hidden="true" className="hidden size-5 text-[var(--app-accent)] lg:block" />
                   </div>

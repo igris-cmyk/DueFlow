@@ -7,7 +7,12 @@ import { LedgerBadge } from "@/components/app/ledger-badge";
 import { LedgerEmptyState } from "@/components/app/ledger-empty-state";
 import { requireOrganization } from "@/lib/auth/guards";
 import { getDb } from "@/lib/db";
-import { formatCurrency, formatDate, statusLabel } from "@/lib/ledger";
+import {
+  formatCurrency,
+  formatDate,
+  statusLabel,
+  todayUtcStart,
+} from "@/lib/ledger";
 
 type ClientDetailPageProps = {
   params: Promise<{ clientId: string }>;
@@ -48,6 +53,23 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
         take: 5,
         include: { project: { select: { name: true } } },
       },
+      clientPromises: {
+        where: { status: { in: ["OPEN", "MISSED", "PARTIAL"] } },
+        orderBy: { promisedDate: "asc" },
+        take: 10,
+        select: {
+          id: true,
+          status: true,
+          promisedDate: true,
+          project: { select: { pendingAmount: true } },
+        },
+      },
+      followUps: {
+        where: { status: { in: ["OPEN", "SNOOZED"] } },
+        orderBy: { dueDate: "asc" },
+        take: 10,
+        select: { id: true, dueDate: true },
+      },
     },
   });
 
@@ -70,7 +92,7 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
     (sum, project) => sum.plus(project.pendingAmount),
     new Prisma.Decimal(0),
   );
-  const today = new Date();
+  const today = todayUtcStart();
   const overdueAmount = activeProjects
     .filter(
       (project) =>
@@ -82,6 +104,16 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
       (sum, project) => sum.plus(project.pendingAmount),
       new Prisma.Decimal(0),
     );
+  const openPromises = client.clientPromises.length;
+  const missedPromises = client.clientPromises.filter(
+    (promise) =>
+      promise.status === "OPEN" &&
+      promise.promisedDate < today &&
+      new Prisma.Decimal(promise.project?.pendingAmount ?? 0).gt(0),
+  ).length;
+  const dueFollowUps = client.followUps.filter(
+    (followUp) => followUp.dueDate <= today,
+  ).length;
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -124,6 +156,20 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
           label="Overdue"
           value={formatCurrency(overdueAmount, organization.currency)}
           danger={overdueAmount.gt(0)}
+        />
+      </section>
+
+      <section className="mt-5 grid gap-4 md:grid-cols-3">
+        <Summary label="Open promises" value={String(openPromises)} />
+        <Summary
+          label="Missed promises"
+          value={String(missedPromises)}
+          danger={missedPromises > 0}
+        />
+        <Summary
+          label="Follow-ups due"
+          value={String(dueFollowUps)}
+          danger={dueFollowUps > 0}
         />
       </section>
 

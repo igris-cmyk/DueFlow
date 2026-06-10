@@ -7,6 +7,7 @@ import {
   FileArchive,
   FolderKanban,
   HandCoins,
+  Handshake,
   ListTodo,
   Settings2,
   TrendingUp,
@@ -34,6 +35,11 @@ const navigation = [
     label: "Payments",
     href: "/app/payments",
     icon: HandCoins,
+  },
+  {
+    label: "Promises",
+    href: "/app/promises",
+    icon: Handshake,
   },
   {
     label: "Follow-Ups",

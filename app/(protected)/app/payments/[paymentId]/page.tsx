@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { ListTodo, Pencil } from "lucide-react";
 import { cancelPaymentAction } from "@/app/(protected)/app/payments/actions";
 import { LedgerBadge } from "@/components/app/ledger-badge";
 import { ProofSection } from "@/components/app/proof-section";
@@ -62,6 +62,16 @@ export default async function PaymentDetailPage({
           createdAt: true,
         },
       },
+      clientPromises: {
+        orderBy: { promisedDate: "desc" },
+        take: 3,
+        select: {
+          id: true,
+          promisedAmount: true,
+          promisedDate: true,
+          status: true,
+        },
+      },
     },
   });
 
@@ -91,6 +101,15 @@ export default async function PaymentDetailPage({
             >
               <Pencil aria-hidden="true" className="size-4" />
               Edit payment
+            </Link>
+          ) : null}
+          {payment.status !== "CANCELLED" ? (
+            <Link
+              href={`/app/follow-ups/new?projectId=${payment.project.id}`}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-4 text-sm font-extrabold text-[var(--app-text-soft)] shadow-sm transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
+            >
+              <ListTodo aria-hidden="true" className="size-4" />
+              Create follow-up
             </Link>
           ) : null}
           {payment.status !== "CANCELLED" ? (
@@ -129,6 +148,40 @@ export default async function PaymentDetailPage({
           <p className="mt-2 text-sm font-semibold leading-6 text-[var(--app-text-soft)]">
             {payment.notes ?? "No notes added."}
           </p>
+        </div>
+      </section>
+
+      <section className="mt-5 rounded-[1.35rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-5 shadow-[var(--app-shadow-soft)]">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-black tracking-[-0.035em] text-[var(--app-text)]">
+            Promise context
+          </h2>
+          <LedgerBadge>Payment remains separate</LedgerBadge>
+        </div>
+        <p className="mt-3 text-sm font-semibold leading-6 text-[var(--app-text-muted)]">
+          Promises are client commitments. Received payments are ledger events.
+        </p>
+        <div className="mt-4 space-y-3">
+          {payment.clientPromises.length === 0 ? (
+            <p className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm font-semibold text-[var(--app-text-muted)]">
+              No promise is linked to this payment.
+            </p>
+          ) : (
+            payment.clientPromises.map((promise) => (
+              <Link
+                key={promise.id}
+                href={`/app/promises/${promise.id}`}
+                className="flex flex-col gap-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 transition hover:border-[var(--app-border-strong)] sm:flex-row sm:items-center sm:justify-between"
+              >
+                <span className="font-black text-[var(--app-text)]">
+                  {formatCurrency(promise.promisedAmount ?? 0, organization.currency)}
+                </span>
+                <span className="text-sm font-semibold text-[var(--app-text-muted)]">
+                  Promised {formatDate(promise.promisedDate)} · {statusLabel(promise.status)}
+                </span>
+              </Link>
+            ))
+          )}
         </div>
       </section>
 

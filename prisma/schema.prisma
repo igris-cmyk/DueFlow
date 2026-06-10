@@ -92,6 +92,7 @@ enum PromiseStatus {
   OPEN
   KEPT
   MISSED
+  PARTIAL
   CANCELLED
 }
 
@@ -104,6 +105,9 @@ enum FollowUpPriority {
 
 enum FollowUpStatus {
   OPEN
+  DONE
+  SNOOZED
+  CANCELLED
   COMPLETED
   SKIPPED
 }
@@ -111,6 +115,7 @@ enum FollowUpStatus {
 enum FollowUpChannel {
   PHONE
   WHATSAPP
+  SMS
   EMAIL
   IN_PERSON
   OTHER
@@ -336,6 +341,7 @@ model PaymentRecord {
   client          Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
   proofItems      ProofItem[]
   followUps       FollowUp[]
+  clientPromises  ClientPromise[]
   disputes        Dispute[]
 
   @@index([organizationId, status, dueDate])
@@ -345,14 +351,14 @@ model PaymentRecord {
 }
 
 model ProofItem {
-  id                   String         @id @default(cuid())
+  id                   String          @id @default(cuid())
   organizationId       String
   projectId            String
   clientId             String
   paymentRecordId      String?
-  title                String         @default("Untitled proof")
+  title                String          @default("Untitled proof")
   type                 ProofType
-  status               ProofStatus    @default(READY)
+  status               ProofStatus     @default(READY)
   sourceUrl            String?
   fileUrl              String?
   fileName             String?
@@ -366,18 +372,20 @@ model ProofItem {
   fileUploadedById     String?
   fileRemovedAt        DateTime?
   fileRemovedById      String?
-  description          String?        @db.Text
+  description          String?         @db.Text
   uploadedById         String?
   archivedAt           DateTime?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  organization         Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project              Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  client               Client         @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  paymentRecord        PaymentRecord? @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
-  uploadedBy           User?          @relation("ProofUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
-  fileUploadedBy       User?          @relation("ProofFileUploadedBy", fields: [fileUploadedById], references: [id], onDelete: SetNull)
-  fileRemovedBy        User?          @relation("ProofFileRemovedBy", fields: [fileRemovedById], references: [id], onDelete: SetNull)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  organization         Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project              Project         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  client               Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  paymentRecord        PaymentRecord?  @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
+  uploadedBy           User?           @relation("ProofUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  fileUploadedBy       User?           @relation("ProofFileUploadedBy", fields: [fileUploadedById], references: [id], onDelete: SetNull)
+  fileRemovedBy        User?           @relation("ProofFileRemovedBy", fields: [fileRemovedById], references: [id], onDelete: SetNull)
+  clientPromises       ClientPromise[]
+  followUps            FollowUp[]
 
   @@index([organizationId, type])
   @@index([organizationId, status])
@@ -390,25 +398,41 @@ model ProofItem {
 }
 
 model ClientPromise {
-  id             String        @id @default(cuid())
-  organizationId String
-  clientId       String
-  projectId      String?
-  promisedAmount Decimal?      @db.Decimal(14, 2)
-  promisedDate   DateTime
-  promiseText    String        @db.Text
-  status         PromiseStatus @default(OPEN)
-  createdById    String
-  createdAt      DateTime      @default(now())
-  resolvedAt     DateTime?
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  client         Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  project        Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  createdBy      User          @relation("PromiseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  id              String           @id @default(cuid())
+  organizationId  String
+  clientId        String
+  projectId       String?
+  paymentRecordId String?
+  proofId         String?
+  promisedAmount  Decimal?         @db.Decimal(14, 2)
+  promisedDate    DateTime
+  channel         FollowUpChannel?
+  promiseText     String           @db.Text
+  status          PromiseStatus    @default(OPEN)
+  createdById     String
+  updatedById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  resolvedAt      DateTime?
+  keptAt          DateTime?
+  missedAt        DateTime?
+  partialAt       DateTime?
+  cancelledAt     DateTime?
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  paymentRecord   PaymentRecord?   @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
+  proof           ProofItem?       @relation(fields: [proofId], references: [id], onDelete: Restrict)
+  createdBy       User             @relation("PromiseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  followUps       FollowUp[]
 
   @@index([organizationId, status, promisedDate])
+  @@index([organizationId, projectId, status])
+  @@index([organizationId, clientId, status])
   @@index([clientId])
   @@index([projectId])
+  @@index([paymentRecordId])
+  @@index([proofId])
 }
 
 model FollowUp {
@@ -416,28 +440,43 @@ model FollowUp {
   organizationId  String
   clientId        String
   projectId       String?
+  promiseId       String?
   paymentRecordId String?
+  proofId         String?
   title           String
   dueDate         DateTime
   priority        FollowUpPriority @default(NORMAL)
   status          FollowUpStatus   @default(OPEN)
   channel         FollowUpChannel?
   assignedToId    String?
+  createdById     String?
+  updatedById     String?
+  completedById   String?
+  message         String?          @db.Text
   notes           String?          @db.Text
   completedAt     DateTime?
+  snoozedUntil    DateTime?
+  cancelledAt     DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client          Client           @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project         Project?         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  promise         ClientPromise?   @relation(fields: [promiseId], references: [id], onDelete: Restrict)
   paymentRecord   PaymentRecord?   @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
+  proof           ProofItem?       @relation(fields: [proofId], references: [id], onDelete: Restrict)
   assignedTo      User?            @relation("FollowUpAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status, dueDate])
   @@index([organizationId, assignedToId, status])
+  @@index([organizationId, projectId, status])
+  @@index([organizationId, clientId, status])
+  @@index([organizationId, promiseId])
   @@index([clientId])
   @@index([projectId])
+  @@index([promiseId])
   @@index([paymentRecordId])
+  @@index([proofId])
 }
 
 model Dispute {
